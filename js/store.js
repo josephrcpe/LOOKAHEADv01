@@ -29,6 +29,8 @@ export function makeLocalDb() {
     onSnapshot(cb) { return listen(() => cb(snapDoc(path))); },
   });
   return {
+    // Escritura en bloque (una sola persistencia): la usa la carga de ejemplos.
+    async setMany(entries) { for (const [path, d] of entries) data[path] = clone(d); persist(); notify(); },
     doc: docRef,
     collection: (path) => ({ path, doc: (id) => docRef(path + "/" + id), async get() { return snapCol(path); }, onSnapshot(cb) { return listen(() => cb(snapCol(path))); } }),
   };

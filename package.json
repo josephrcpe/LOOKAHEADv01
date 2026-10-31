@@ -7,7 +7,8 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "python3 -m http.server 8080"
+    "dev": "python3 -m http.server 8080",
+    "ejemplos": "python3 scripts/ejemplos_js.py"
   },
   "license": "UNLICENSED",
   "devDependencies": {

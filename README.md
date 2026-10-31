@@ -3,7 +3,7 @@
 Herramienta web para planificar y controlar obras con un **lookahead de 3 semanas**, registrar la **ejecución semanal** (manual o con un **Excel de campo**) y comparar el **cronograma proyectado** (línea base) con el **real** (as-built), con indicadores en **HH**.
 
 - Página publicada: https://claude.ai/artifact/E5LB68eGP35DgYSpP8tcVV (datos compartidos en la nube).
-- Copia sin conexión: `dist/lookahead.html` (guarda en el navegador).
+- Copia sin conexión: `dist/lookahead.html` (guarda en el navegador). Trae los proyectos de ejemplo incluidos y los carga sola la primera vez que se abre sin proyectos.
 - Proyectos de ejemplo: **Proy_Ejem_2M** (en curso, con registros hasta la semana 7) y **Proy_Ejem_Concluido** (terminado, con todas las semanas registradas).
 
 ## Documentación
@@ -21,6 +21,7 @@ npm run dev          # sirve la carpeta en http://localhost:8080 (módulos ES, s
 npm run build        # genera dist/index.html (publicación) y dist/lookahead.html (sin conexión)
 python3 scripts/ejemplo_2m.py > ejemplo_2m.json                    # ejemplo en curso
 python3 scripts/ejemplo_2m.py --concluido > ejemplo_concluido.json # ejemplo terminado
+npm run ejemplos     # regenera data/ejemplos.js (ejemplos incluidos en la copia sin conexión)
 ```
 
 No hay servidor propio: la página usa la base de datos de la plataforma de Artifacts cuando está publicada, y `localStorage` en cualquier otro caso. ExcelJS y JSZip se cargan desde cdnjs.
@@ -46,4 +47,6 @@ js/
   io/csv-export.js    ZIP de CSV por tabla + datos.json
 scripts/build.mjs     empaquetado a un solo HTML
 scripts/ejemplo_2m.py generador del proyecto de ejemplo
+scripts/ejemplos_js.py empaqueta ambos ejemplos en data/ejemplos.js
+data/ejemplos.js      ejemplos incluidos en la copia sin conexión
 ```

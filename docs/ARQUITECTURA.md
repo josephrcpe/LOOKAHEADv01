@@ -79,6 +79,6 @@ Rutas alternan colección/documento. Todas cuelgan de `proyectos/{pid}`.
 
 ## 8. Pruebas y publicación
 
-- Desarrollo: `npm run dev` y abrir `http://localhost:8080`. Sin conexión a la plataforma usa `localStorage` (clave `lookahead-db-v3`); para cargar el ejemplo, pon el JSON de `scripts/ejemplo_2m.py` en esa clave.
+- Desarrollo: `npm run dev` y abrir `http://localhost:8080`. Sin conexión a la plataforma usa `localStorage` (clave `lookahead-db-v3`); en modo local, si no hay proyectos, `data.js → cargarEjemplos()` importa `data/ejemplos.js` (generado con `npm run ejemplos`) y lo escribe con `db.setMany`. El mismo botón está en Abrir → Cargar proyectos de ejemplo.
 - Prueba integral usada (Playwright): carga el ejemplo, recorre las 5 pestañas, exporta el Excel de campo, lo llena, lo vuelve a cargar, exporta Excel y CSV, revisa modo oscuro y ancho de 390 px sin desborde.
 - Publicación: `npm run build` y publicar `dist/index.html` en el mismo Artifact (capacidades `db`, `user`, `downloads`).

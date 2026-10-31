@@ -47,7 +47,10 @@ export async function connect() {
   db = s.db; state.mode = s.mode; state.readOnly = s.readOnly;
   db.collection("proyectos").onSnapshot((snap) => {
     state.projects = snap.docs.map((d) => ({ pid: d.id, ...d.data() })).sort((a, b) => (b.modificado || "").localeCompare(a.modificado || ""));
+    const first = !state.projectsLoaded;
     state.projectsLoaded = true;
+    // Copia sin conexión recién abierta: sin proyectos, carga los ejemplos incluidos.
+    if (first && state.mode === "local" && !state.projects.length) { cargarEjemplos().catch(writeFailed); return; }
     if (!state.pid || !state.projects.some((p) => p.pid === state.pid)) {
       const stored = lsGet(PID_KEY);
       const pick = state.projects.find((p) => p.pid === stored) || state.projects[0];
@@ -134,4 +137,18 @@ export async function addRestr(a, fields) {
 export async function freeRestr(id) {
   const r = state.restr.find((x) => x.id === id); if (!r) return;
   await col("restricciones").doc(id).set({ ...r, estado: "Liberada", fechaLiberacion: toIso(todayDay()) });
+}
+
+// ---------- Proyectos de ejemplo (data/ejemplos.js) ----------
+// Escribe los ejemplos que falten; nunca sobrescribe un proyecto existente.
+export async function cargarEjemplos() {
+  const { default: docs } = await import("../data/ejemplos.js");
+  const have = new Set(state.projects.map((p) => p.pid));
+  const entries = Object.entries(docs).filter(([path]) => !have.has(path.split("/")[1]));
+  if (!entries.length) { toast("Los proyectos de ejemplo ya están cargados."); return 0; }
+  if (db.setMany) await db.setMany(entries);
+  else for (let i = 0; i < entries.length; i++) await db.doc(entries[i][0]).set(entries[i][1]);
+  const n = new Set(entries.map(([path]) => path.split("/")[1])).size;
+  toast(`Se cargaron ${n} proyecto(s) de ejemplo. Ábrelos con Abrir.`, 5000);
+  return n;
 }
