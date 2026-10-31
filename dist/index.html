@@ -115,6 +115,10 @@ form { display: grid; gap: 12px; }
 .field textarea { resize: vertical; min-height: 64px; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
 .field [aria-invalid="true"] { border-color: var(--danger); }
+.radio-opts { border: 0; padding: 0; margin: 10px 0 8px; display: grid; gap: 6px; }
+.radio-opts legend { font-size: .8rem; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.radio-opts label { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+.radio-opts input { accent-color: var(--focus); margin: 0; }
 .field .calc { font: 500 1rem var(--font-mono); padding: 7px 0; }
 #f-sector { text-transform: uppercase; font-family: var(--font-mono); }
 .err { color: var(--danger); font-size: .78rem; }
@@ -331,6 +335,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
         <button class="btn" id="btnNew">Nuevo</button>
         <button class="btn" id="btnSaveAs">Guardar como…</button>
         <button class="btn" id="btnOpen">Abrir</button>
+        <button class="btn" id="btnBackup" title="Descarga el proyecto completo en un archivo .json">Guardar respaldo</button>
       </div>
     </div>
     <div class="horizon">
@@ -372,7 +377,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   <div class="panel empty" id="noProject" hidden>
     <strong>No hay ningún proyecto abierto</strong>
     <span>Crea un proyecto nuevo o abre uno existente para registrar actividades.</span>
-    <div class="btn-group"><button class="btn btn-primary" data-act="new">Nuevo proyecto</button><button class="btn" data-act="open">Abrir</button></div>
+    <div class="btn-group"><button class="btn btn-primary" data-act="new">Nuevo proyecto</button><button class="btn" data-act="open">Abrir</button><button class="btn" data-act="restore">Restaurar respaldo</button></div>
   </div>
 
   <!-- Entrada: programa vigente y línea base (views/entrada.js) -->
@@ -1166,6 +1171,34 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     if (!r) return;
     await col("restricciones").doc(id).set({ ...r, estado: "Liberada", fechaLiberacion: toIso(todayDay()) });
   }
+  var RESPALDO_COLS = SUBS.map(([name2]) => name2);
+  function datosProyecto() {
+    const colecciones = {};
+    for (const [name2, key] of SUBS) colecciones[name2] = state[key].map((d) => ({ ...d }));
+    return { pid: state.pid, proyecto: { ...P() }, colecciones };
+  }
+  async function escribirProyecto(pid, proyecto, colecciones, reemplazar) {
+    const dst = "proyectos/" + pid;
+    if (reemplazar) for (const [name2] of SUBS) {
+      const keep = new Set((colecciones[name2] || []).map((d, i) => idDe(name2, d, i)));
+      const snap = await db.collection(dst + "/" + name2).get();
+      for (const d of snap.docs) if (!keep.has(d.id)) await db.collection(dst + "/" + name2).doc(d.id).delete();
+    }
+    const entries = [[dst, proyecto]];
+    for (const [name2] of SUBS) (colecciones[name2] || []).forEach((d, i) => entries.push([dst + "/" + name2 + "/" + idDe(name2, d, i), d]));
+    if (db.setMany) await db.setMany(entries);
+    else for (let i = 0; i < entries.length; i++) {
+      await db.doc(entries[i][0]).set(entries[i][1]);
+      if (i % 10 === 9) toast(`Restaurando\u2026 ${i + 1} de ${entries.length}`);
+    }
+    if (!state.projects.some((p) => p.pid === pid)) state.projects = [{ pid, ...proyecto }, ...state.projects];
+    openProject(pid);
+  }
+  var idDe = (name2, d, i) => {
+    const f2 = SUBS.find(([n]) => n === name2)[2];
+    return String(f2(d) ?? "x" + i);
+  };
+  var nuevoPid = makePid;
   async function cargarEjemplos() {
     const { default: docs } = await Promise.resolve().then(() => (init_ejemplos(), ejemplos_exports));
     const have = new Set(state.projects.map((p) => p.pid));
@@ -1203,135 +1236,6 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       onChange();
     });
     showView(location.hash.slice(1));
-  }
-
-  // js/views/proyectos.js
-  function nameDialog({ title, text, value, button, onOk }) {
-    openModal(`<h2 id="modalTitle">${esc(title)}</h2><p class="help" style="margin:0">${esc(text)}</p>
-    <form id="mForm" novalidate><div class="field"><label for="m-name">Nombre del proyecto <span class="req">*</span></label>
-    <input id="m-name" maxlength="60" value="${esc(value || "")}" autocomplete="off"><div class="err" id="m-err"></div></div>
-    <div class="modal-actions"><button type="button" class="btn" data-close>Cancelar</button><button type="submit" class="btn btn-primary">${esc(button)}</button></div></form>`, (box) => {
-      box.querySelector("#mForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const n = box.querySelector("#m-name").value.trim();
-        const err = box.querySelector("#m-err");
-        if (!n) {
-          err.textContent = "Escribe un nombre.";
-          return;
-        }
-        if (nameTaken(n)) {
-          err.textContent = "Ya existe un proyecto con ese nombre. Elige otro.";
-          return;
-        }
-        const btn = box.querySelector("button[type=submit]");
-        btn.disabled = true;
-        btn.textContent = "Guardando\u2026";
-        try {
-          await onOk(n);
-          closeModal();
-        } catch (ex) {
-          btn.disabled = false;
-          btn.textContent = button;
-          writeFailed(ex);
-        }
-      });
-    });
-    $("m-name")?.select();
-  }
-  function newProject() {
-    if (state.readOnly) return toast("Este lookahead es de solo lectura para ti.");
-    nameDialog({
-      title: "Nuevo proyecto",
-      text: "Se crea un proyecto vac\xEDo. El proyecto actual queda guardado y puedes volver a \xE9l con Abrir.",
-      value: "",
-      button: "Crear proyecto",
-      onOk: async (n) => {
-        await createProject(n);
-        toast(`Proyecto "${n}" creado.`);
-      }
-    });
-  }
-  function saveAsProject() {
-    if (!requirePid()) return;
-    nameDialog({
-      title: "Guardar como\u2026",
-      text: "Crea una copia completa del proyecto actual (actividades, l\xEDneas base, planes semanales, registros, cortes y restricciones) con otro nombre, y la abre.",
-      value: P().nombre + " (copia)",
-      button: "Guardar copia",
-      onOk: async (n) => {
-        await copyProject(n);
-        toast(`Guardado como "${n}".`);
-      }
-    });
-  }
-  function openDialog() {
-    const list = state.projects;
-    openModal(`<h2 id="modalTitle">Abrir proyecto</h2>
-    ${list.length ? `<div class="proj-list">${list.map((p) => `<div class="proj-item${p.pid === state.pid ? " current" : ""}"><div><div class="nm">${esc(p.nombre || p.pid)}</div><div class="help">Horizonte desde ${esc(fmtIso(p.inicio))}${p.modificado ? " \xB7 modificado " + esc(fmt(toDay(p.modificado.slice(0, 10)), true)) : ""}</div></div>${p.pid === state.pid ? '<span class="pill info">Abierto</span>' : `<button class="btn btn-sm btn-primary" data-pid="${esc(p.pid)}">Abrir</button>`}</div>`).join("")}</div>` : '<p class="help">Todav\xEDa no hay proyectos guardados.</p>'}
-    <div class="modal-actions"><button class="btn" data-ejemplos${state.readOnly ? " disabled" : ""}>Cargar proyectos de ejemplo</button><button class="btn" data-close>Cerrar</button></div>`, (box) => {
-      box.addEventListener("click", async (e) => {
-        const ej = e.target.closest("[data-ejemplos]");
-        if (ej) {
-          ej.disabled = true;
-          try {
-            if (await cargarEjemplos()) closeModal();
-          } catch (ex) {
-            writeFailed(ex);
-          } finally {
-            ej.disabled = false;
-          }
-          return;
-        }
-        const b = e.target.closest("[data-pid]");
-        if (b) {
-          openProject(b.dataset.pid);
-          closeModal();
-          toast(`Proyecto "${P().nombre}" abierto.`);
-        }
-      });
-    });
-  }
-  function applyCfg() {
-    $("projName").value = P().nombre || "";
-    $("startDate").value = toIso(startDay());
-    $("workWeek").value = P().jornada || "7";
-    $("hoursDay").value = horasDia();
-  }
-  var setStart = (day) => {
-    if (requirePid()) saveProj({ inicio: toIso(day) }).catch(writeFailed);
-  };
-  function initProyectos() {
-    $("btnNew").addEventListener("click", newProject);
-    $("btnSaveAs").addEventListener("click", saveAsProject);
-    $("btnOpen").addEventListener("click", openDialog);
-    $("noProject").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-act]");
-      if (b) (b.dataset.act === "new" ? newProject : openDialog)();
-    });
-    $("startDate").addEventListener("change", (e) => {
-      const d = toDay(e.target.value);
-      if (!isNaN(d)) setStart(d);
-    });
-    $("prevWeek").addEventListener("click", () => setStart(startDay() - 7));
-    $("nextWeek").addEventListener("click", () => setStart(startDay() + 7));
-    $("thisWeek").addEventListener("click", () => setStart(mondayOf(todayDay())));
-    $("workWeek").addEventListener("change", (e) => {
-      if (requirePid()) saveProj({ jornada: e.target.value }).catch(writeFailed);
-    });
-    $("hoursDay").addEventListener("change", (e) => {
-      const h = num(e.target.value);
-      if (h > 0 && h <= 24 && requirePid()) saveProj({ horasDia: h }).catch(writeFailed);
-      else applyCfg();
-    });
-    $("projName").addEventListener("change", (e) => {
-      const n = e.target.value.trim();
-      if (!n || n.toLowerCase() !== (P().nombre || "").toLowerCase() && nameTaken(n)) {
-        toast(n ? "Ya existe un proyecto con ese nombre." : "El nombre no puede quedar vac\xEDo.");
-        applyCfg();
-        return;
-      }
-      if (requirePid()) saveProj({ nombre: n }).catch(writeFailed);
-    });
   }
 
   // js/views/entrada.js
@@ -1853,6 +1757,828 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       }
       saveUi();
       renderGantt();
+    });
+  }
+
+  // js/model/metrics.js
+  function refTasks() {
+    const b = latestBaseline();
+    if (b) return { tasks: b.tareas || [], jornada: b.jornada, horas: num(b.horasDia) || 10, isBaseline: true };
+    return { tasks: state.acts, jornada: state.proj?.jornada, horas: num(state.proj?.horasDia) || 10, isBaseline: false };
+  }
+  var hhPerDay = (t, horas) => num(t.personal) * horas;
+  function cutWeek() {
+    const ws = state.regs.map((r) => r.semana).sort();
+    return ws.length ? toDay(ws[ws.length - 1]) : null;
+  }
+  function weekRange() {
+    const days = [];
+    for (const t of refTasks().tasks) days.push(toDay(t.inicio), toDay(t.fin));
+    for (const a of state.acts) days.push(toDay(a.inicio), toDay(a.fin));
+    for (const r of state.regs) days.push(toDay(r.semana));
+    const ok = days.filter((d) => !isNaN(d));
+    if (!ok.length) return [];
+    const w0 = mondayOf(Math.min(...ok)), w1 = mondayOf(Math.max(...ok));
+    const out = [];
+    for (let w = w0; w <= w1; w += 7) out.push(w);
+    return out;
+  }
+  function avanceAt(uid, wIso, metradoPlan) {
+    const regs = state.regs.filter((r) => r.uid === uid && r.semana <= wIso).sort((a, b) => a.semana.localeCompare(b.semana));
+    if (!regs.length) return 0;
+    const acum = regs.reduce((s, r) => s + num(r.metradoEjec), 0);
+    const last = regs[regs.length - 1];
+    const total = metradoPlan ?? byUid(uid)?.metrado;
+    return last.finReal ? 100 : avanceFrom(total, acum, last.avance);
+  }
+  function sCurve() {
+    const { tasks, jornada, horas } = refTasks();
+    const weeks = weekRange();
+    const cut = cutWeek();
+    const bac = tasks.reduce((s, t) => s + (t.hhPlan != null ? num(t.hhPlan) : 0), 0) || tasks.reduce((s, t) => s + hhPerDay(t, horas) * workDays(t, jornada), 0);
+    let pvCum = 0, acCum = 0;
+    return { bac, cut, weeks: weeks.map((w) => {
+      let pv = 0;
+      for (const t of tasks) for (let d = Math.max(w, toDay(t.inicio)); d <= Math.min(w + 6, toDay(t.fin)); d++) if (isWork(d, jornada)) pv += hhPerDay(t, horas);
+      pvCum += pv;
+      const wIso = toIso(w);
+      const ac = state.regs.filter((r) => r.semana === wIso).reduce((s, r) => s + regHH(r), 0);
+      acCum += ac;
+      const real = cut != null && w <= cut;
+      const evCum = real ? tasks.reduce((s, t) => s + avanceAt(t.uid, wIso, t.metrado) / 100 * num(t.hhPlan), 0) : null;
+      return { w, pv, pvCum, ac: real ? ac : null, acCum: real ? acCum : null, evCum };
+    }) };
+  }
+  function workDays(t, jornada) {
+    let n = 0;
+    for (let d = toDay(t.inicio); d <= toDay(t.fin); d++) if (isWork(d, jornada)) n++;
+    return n;
+  }
+  function kpisAtCut() {
+    const s = sCurve();
+    const last = s.weeks.filter((x) => x.evCum != null).pop();
+    if (!last) return { bac: s.bac, cut: null };
+    const pv = last.pvCum, ev = last.evCum, ac = last.acCum;
+    const spi = pv ? ev / pv : null, cpi = ac ? ev / ac : null;
+    return { bac: s.bac, cut: s.cut, pv, ev, ac, spi, cpi, eac: cpi ? s.bac / cpi : null, avance: s.bac ? ev / s.bac : null, avancePlan: s.bac ? pv / s.bac : null };
+  }
+  function pacSeries() {
+    const weeks = /* @__PURE__ */ new Set([...state.planes.map((p) => p.semana), ...state.regs.map((r) => r.semana)]);
+    return [...weeks].sort().map((wIso) => {
+      const plan = planOf(toDay(wIso));
+      const regs = state.regs.filter((r) => r.semana === wIso);
+      const comp = plan ? (plan.compromisos || []).filter((c) => c.comprometida !== false).map((c) => c.uid) : regs.filter((r) => r.comprometida === "S\xED").map((r) => r.uid);
+      const done = comp.filter((uid) => regs.find((r) => r.uid === uid)?.cumplida === "S\xED").length;
+      const conReg = comp.filter((uid) => regs.some((r) => r.uid === uid)).length;
+      return { w: toDay(wIso), comprometidas: comp.length, cumplidas: done, registradas: conReg, pac: comp.length && conReg ? done / comp.length : null, congelado: !!plan };
+    });
+  }
+  function causasNC() {
+    const m = /* @__PURE__ */ new Map();
+    for (const r of state.regs) if (r.cumplida === "No" && r.causaNC) m.set(r.causaNC, (m.get(r.causaNC) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([causa, n]) => ({ causa, n }));
+  }
+  function personalSemanal() {
+    const { tasks, jornada } = refTasks();
+    const cut = cutWeek();
+    return weekRange().map((w) => {
+      let wd = 0;
+      for (let d = w; d < w + 7; d++) if (isWork(d, jornada)) wd++;
+      let dh = 0;
+      for (const t of tasks) for (let d = Math.max(w, toDay(t.inicio)); d <= Math.min(w + 6, toDay(t.fin)); d++) if (isWork(d, jornada)) dh += num(t.personal);
+      const regs = state.regs.filter((r) => r.semana === toIso(w));
+      const dhReal = regs.reduce((s, r) => s + num(r.personalTotal) * num(r.dias), 0);
+      return { w, plan: wd ? dh / wd : 0, real: cut != null && w <= cut ? wd ? dhReal / wd : 0 : null };
+    });
+  }
+  function paretoPerdidas() {
+    const m = /* @__PURE__ */ new Map();
+    for (const r of state.regs) for (const p of r.perdidas || []) if (p.causa) m.set(p.causa, (m.get(p.causa) || 0) + num(p.horas) * num(p.personas));
+    const rows = [...m.entries()].map(([causa, hh]) => ({ causa, hh })).filter((x) => x.hh > 0).sort((a, b) => b.hh - a.hh);
+    const total = rows.reduce((s, x) => s + x.hh, 0);
+    let acc = 0;
+    for (const x of rows) {
+      acc += x.hh;
+      x.acumPct = total ? acc / total : 0;
+    }
+    return { rows, total };
+  }
+  function productividadPorTipo() {
+    const { tasks } = refTasks();
+    const cut = cutWeek();
+    if (cut == null) return [];
+    const cutIso = toIso(cut);
+    const m = /* @__PURE__ */ new Map();
+    for (const t of tasks) {
+      const ac = state.regs.filter((r) => r.uid === t.uid).reduce((s, r) => s + regHH(r), 0);
+      const ev = avanceAt(t.uid, cutIso, t.metrado) / 100 * num(t.hhPlan);
+      if (!ac && !ev) continue;
+      const x = m.get(t.tipo) || { tipo: t.tipo, disciplina: t.disciplina, ac: 0, ev: 0, n: 0 };
+      x.ac += ac;
+      x.ev += ev;
+      x.n++;
+      m.set(t.tipo, x);
+    }
+    return [...m.values()].filter((x) => x.ev > 0).map((x) => ({ ...x, pf: x.ac / x.ev }));
+  }
+  function asBuiltSegments(uid, jornada) {
+    const regs = state.regs.filter((r) => r.uid === uid).sort((a, b) => a.semana.localeCompare(b.semana));
+    const ini = regs.find((r) => r.inicioReal)?.inicioReal;
+    const fin = regs.find((r) => r.finReal)?.finReal;
+    const days = [];
+    for (const r of regs) {
+      const w = toDay(r.semana);
+      let left = Math.round(num(r.dias));
+      const from = ini && toDay(ini) > w ? toDay(ini) : w;
+      const to = fin && toDay(fin) < w + 6 ? toDay(fin) : w + 6;
+      for (let d = from; d <= to && left > 0; d++) if (isWork(d, jornada)) {
+        days.push(d);
+        left--;
+      }
+    }
+    const segs = [];
+    for (const d of days.sort((a, b) => a - b)) {
+      const s = segs[segs.length - 1];
+      if (s && nextWork(s.d1, jornada) === d) s.d1 = d;
+      else segs.push({ d0: d, d1: d });
+    }
+    return { segs, inicioReal: ini || "", finReal: fin || "" };
+  }
+  function nextWork(d, jornada) {
+    do
+      d++;
+    while (!isWork(d, jornada));
+    return d;
+  }
+
+  // js/io/excel-report.js
+  var fileBase = () => (P().nombre || "proyecto").replace(/[\\/:*?"<>|]/g, "").trim();
+  async function exportExcel() {
+    if (!state.pid) return toast("Abre un proyecto primero.");
+    if (!window.ExcelJS) return toast("No se pudo cargar el generador de Excel. Revisa tu conexi\xF3n y recarga la p\xE1gina.");
+    const h0 = startDay(), today = todayDay();
+    const xDate = (day) => new Date(day * MS);
+    const xIso = (iso) => iso ? xDate(toDay(iso)) : null;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Lookahead de Obra";
+    wb.created = /* @__PURE__ */ new Date();
+    wb.calcProperties.fullCalcOnLoad = true;
+    const thin = { style: "thin", color: { argb: "FFC9D1DA" } };
+    const border = { top: thin, left: thin, bottom: thin, right: thin };
+    const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+    const headFill = solid("FF1F5F8B"), headFont = { bold: true, color: { argb: "FFFFFFFF" } };
+    const inputFill = solid("FFFFF1D6");
+    const DF = "dd/mm/yyyy";
+    const ESH = "'Ejecuci\xF3n semanal'";
+    const C = ["Id Tarea", "Descripci\xF3n", "Disciplina", "Especialidad", "Tipo", "Sector/Zona", "Nivel", "Ejes", "Plano de referencia", "Predecesora", "Responsable", "Personal", "Metrado plan", "Unidad", "Inicio", "Fin", "Duraci\xF3n (d)", "D\xEDas-hombre (horizonte)", "HH plan (horizonte)", "HH real (acum.)", "% Avance", "Estado", "Observaciones"];
+    const W = [17, 38, 20, 18, 6, 11, 9, 10, 18, 17, 16, 8, 9, 7, 11, 11, 9, 11, 11, 11, 8, 12, 30];
+    const col2 = Object.fromEntries(C.map((n, i) => [n, i + 1]));
+    const L2 = Object.fromEntries(C.map((n, i) => [n, colL(i + 1)]));
+    const D0 = C.length + 1, DL0 = colL(D0), DLN = colL(D0 + DAYS - 1);
+    const R_WEEK = 5, R_WORK = 6, R_DOW = 7, R_DATE = 8, R0 = 9;
+    const ws = wb.addWorksheet("Lookahead", { views: [{ state: "frozen", xSplit: 2, ySplit: R_DATE }], properties: { outlineProperties: { summaryBelow: false } } });
+    W.forEach((w, i) => ws.getColumn(i + 1).width = w);
+    for (let i = 0; i < DAYS; i++) ws.getColumn(D0 + i).width = 4.8;
+    ws.getCell("A1").value = P().nombre || "Proyecto";
+    ws.getCell("A1").font = { bold: true, size: 14 };
+    ws.getCell("A2").value = `Lookahead de 3 semanas: ${fmt(h0, true)} al ${fmt(h0 + DAYS - 1, true)}` + (latestBaseline() ? ` \xB7 L\xEDnea base v${latestBaseline().version}` : "");
+    ws.getCell("A2").font = { color: { argb: "FF5A6876" } };
+    ws.getCell("A3").value = "Fecha de control";
+    ws.getCell("A3").font = { bold: true };
+    ws.getCell("B3").value = { formula: "TODAY()", result: xDate(today) };
+    ws.getCell("B3").numFmt = DF;
+    ws.getCell("B3").fill = inputFill;
+    ws.getCell("B3").alignment = { horizontal: "left" };
+    ws.getCell("C3").value = "Reemplaza la f\xF3rmula por una fecha fija para evaluar el avance a un corte.";
+    ws.getCell("C3").font = { italic: true, size: 9, color: { argb: "FF5A6876" } };
+    ws.getCell("A4").value = "Horas por d\xEDa";
+    ws.getCell("A4").font = { bold: true };
+    ws.getCell("B4").value = horasDia();
+    ws.getCell("B4").fill = inputFill;
+    ws.getCell("B4").alignment = { horizontal: "left" };
+    for (let w = 0; w < 3; w++) {
+      const c0 = D0 + w * 7;
+      ws.mergeCells(R_WEEK, c0, R_WEEK, c0 + 6);
+      const c = ws.getCell(R_WEEK, c0);
+      c.value = `Semana ${w + 1}`;
+      c.fill = headFill;
+      c.font = headFont;
+      c.alignment = { horizontal: "center" };
+    }
+    const note = (r2, text, italic) => {
+      const c = ws.getCell(r2, D0 - 1);
+      c.value = text;
+      c.alignment = { horizontal: "right" };
+      c.font = { size: 9, italic: !!italic, color: { argb: "FF5A6876" } };
+    };
+    note(R_WORK, "Laborable (1 = s\xED) \u2192");
+    note(R_DOW, "Cambia la primera fecha para mover el horizonte \u2192", true);
+    for (let i = 0; i < DAYS; i++) {
+      const d = h0 + i, cc2 = D0 + i, L_ = colL(cc2);
+      const cw = ws.getCell(R_WORK, cc2);
+      cw.value = isWork(d) ? 1 : 0;
+      cw.alignment = { horizontal: "center" };
+      cw.font = { size: 9 };
+      cw.fill = inputFill;
+      cw.border = border;
+      const cd = ws.getCell(R_DOW, cc2);
+      cd.value = { formula: `MID("DLMMJVS",WEEKDAY(${L_}${R_DATE}),1)`, result: DOW[dow(d)] };
+      cd.alignment = { horizontal: "center" };
+      cd.font = { size: 9, color: { argb: "FF5A6876" } };
+      const ct = ws.getCell(R_DATE, cc2);
+      ct.value = i === 0 ? xDate(d) : { formula: `${colL(cc2 - 1)}${R_DATE}+1`, result: xDate(d) };
+      ct.numFmt = "dd";
+      ct.alignment = { horizontal: "center" };
+      ct.font = { bold: true, size: 9 };
+      ct.fill = solid("FFE9EDF1");
+      ct.border = border;
+    }
+    ws.getCell(R_DATE, D0).fill = inputFill;
+    C.forEach((n, i) => {
+      const c = ws.getCell(R_DATE, i + 1);
+      c.value = n;
+      c.fill = headFill;
+      c.font = headFont;
+      c.border = border;
+      c.alignment = { vertical: "middle", wrapText: true };
+    });
+    ws.getRow(R_DATE).height = 30;
+    const list = sortActs(state.acts).filter(inHorizon);
+    const plan = [];
+    for (const g1 of groupTree(list, "sector")) {
+      plan.push({ kind: 1, g: g1 });
+      for (const g2 of g1.children) {
+        plan.push({ kind: 2, g: g2 });
+        for (const a of g2.acts) plan.push({ kind: 3, a });
+      }
+    }
+    let r = R0;
+    plan.forEach((p) => {
+      p.row = r++;
+    });
+    const lastRow = Math.max(R0, r - 1);
+    const endOf = (idx2) => {
+      const lvl = plan[idx2].kind;
+      let j = idx2 + 1;
+      while (j < plan.length && plan[j].kind > lvl) j++;
+      return plan[j - 1].row;
+    };
+    const hhRealOf = (uid) => state.regs.filter((x) => x.uid === uid).reduce((s, x) => s + num(x.hhTrab), 0);
+    plan.forEach((p, idx2) => {
+      const row = ws.getRow(p.row);
+      const R = p.row;
+      if (p.kind === 3) {
+        const a = p.a;
+        row.outlineLevel = 2;
+        const lr = latestReg(a.uid);
+        const vals = {
+          "Id Tarea": a.idTarea,
+          "Descripci\xF3n": a.desc,
+          "Disciplina": a.disciplina,
+          "Especialidad": a.especialidad || null,
+          "Tipo": a.tipo,
+          "Sector/Zona": a.sector,
+          "Nivel": a.nivel || null,
+          "Ejes": a.ejes || null,
+          "Plano de referencia": a.plano || null,
+          "Predecesora": a.pred && byUid(a.pred) ? byUid(a.pred).idTarea : null,
+          "Responsable": a.resp || null,
+          "Personal": num(a.personal),
+          "Metrado plan": a.metrado ?? null,
+          "Unidad": a.unidad || null,
+          "Inicio": xIso(a.inicio),
+          "Fin": xIso(a.fin),
+          "% Avance": lr ? num(lr.avance) / 100 : 0,
+          "Observaciones": a.obs || null
+        };
+        for (const [k, v] of Object.entries(vals)) row.getCell(col2[k]).value = v;
+        const days = Array.from({ length: DAYS }, (_, i) => personalOn(a, h0 + i));
+        const dh = days.reduce((s, v) => s + v, 0);
+        row.getCell(col2["Duraci\xF3n (d)"]).value = { formula: `${L2["Fin"]}${R}-${L2["Inicio"]}${R}+1`, result: durOf(a) };
+        row.getCell(col2["D\xEDas-hombre (horizonte)"]).value = { formula: `SUM(${DL0}${R}:${DLN}${R})`, result: dh };
+        row.getCell(col2["HH plan (horizonte)"]).value = { formula: `${L2["D\xEDas-hombre (horizonte)"]}${R}*$B$4`, result: dh * horasDia() };
+        row.getCell(col2["HH real (acum.)"]).value = { formula: `SUMIFS(${ESH}!$U:$U,${ESH}!$B:$B,${L2["Id Tarea"]}${R})`, result: hhRealOf(a.uid) };
+        const st = lr && num(lr.avance) >= 100 ? "Completada" : today > toDay(a.fin) ? "Atrasada" : today >= toDay(a.inicio) ? "En curso" : "Por iniciar";
+        row.getCell(col2["Estado"]).value = { formula: `IF(${L2["% Avance"]}${R}>=1,"Completada",IF($B$3>${L2["Fin"]}${R},"Atrasada",IF($B$3>=${L2["Inicio"]}${R},"En curso","Por iniciar")))`, result: st };
+        for (let i = 0; i < DAYS; i++) {
+          const Ld = colL(D0 + i);
+          row.getCell(D0 + i).value = { formula: `IF(AND(${Ld}$${R_DATE}>=$${L2["Inicio"]}${R},${Ld}$${R_DATE}<=$${L2["Fin"]}${R},${Ld}$${R_WORK}=1),$${L2["Personal"]}${R},"")`, result: days[i] || "" };
+          row.getCell(D0 + i).alignment = { horizontal: "center" };
+        }
+        row.getCell(col2["Inicio"]).numFmt = DF;
+        row.getCell(col2["Fin"]).numFmt = DF;
+        row.getCell(col2["HH plan (horizonte)"]).numFmt = "#,##0";
+        row.getCell(col2["HH real (acum.)"]).numFmt = "#,##0";
+        row.getCell(col2["% Avance"]).numFmt = "0%";
+        row.getCell(col2["% Avance"]).fill = inputFill;
+        row.getCell(col2["% Avance"]).dataValidation = { type: "decimal", operator: "between", allowBlank: true, formulae: [0, 1], showErrorMessage: true, errorTitle: "% Avance", error: "Ingresa un valor entre 0% y 100%." };
+        row.getCell(col2["Descripci\xF3n"]).alignment = { wrapText: true, vertical: "top" };
+        for (let c = 1; c < D0 + DAYS; c++) row.getCell(c).border = border;
+      } else {
+        const g = p.g;
+        const end = endOf(idx2);
+        const actsIn = p.kind === 1 ? g.children.flatMap((c) => c.acts) : g.acts;
+        row.outlineLevel = p.kind === 1 ? 0 : 1;
+        row.getCell(1).value = p.kind === 1 ? g.key : "  " + g.key;
+        row.getCell(2).value = p.kind === 1 ? sectores()[g.key] || null : `${actsIn.length} ${actsIn.length === 1 ? "actividad" : "actividades"}`;
+        row.getCell(col2["Inicio"]).value = { formula: `SUBTOTAL(5,${L2["Inicio"]}${R + 1}:${L2["Inicio"]}${end})`, result: xDate(Math.min(...actsIn.map((a) => toDay(a.inicio)))) };
+        row.getCell(col2["Fin"]).value = { formula: `SUBTOTAL(4,${L2["Fin"]}${R + 1}:${L2["Fin"]}${end})`, result: xDate(Math.max(...actsIn.map((a) => toDay(a.fin)))) };
+        row.getCell(col2["Inicio"]).numFmt = DF;
+        row.getCell(col2["Fin"]).numFmt = DF;
+        const tot = dailyTotals(actsIn);
+        const dh = tot.reduce((s, v) => s + v, 0);
+        for (const [k, res] of [["D\xEDas-hombre (horizonte)", dh], ["HH plan (horizonte)", dh * horasDia()], ["HH real (acum.)", actsIn.reduce((s, a) => s + hhRealOf(a.uid), 0)]]) {
+          row.getCell(col2[k]).value = { formula: `SUBTOTAL(9,${L2[k]}${R + 1}:${L2[k]}${end})`, result: res };
+          row.getCell(col2[k]).numFmt = "#,##0";
+        }
+        for (let i = 0; i < DAYS; i++) {
+          const Ld = colL(D0 + i);
+          row.getCell(D0 + i).value = { formula: `SUBTOTAL(9,${Ld}${R + 1}:${Ld}${end})`, result: tot[i] };
+          row.getCell(D0 + i).alignment = { horizontal: "center" };
+        }
+        const fill = solid(p.kind === 1 ? "FFD5DEE7" : "FFE9EDF1");
+        for (let c = 1; c < D0 + DAYS; c++) {
+          const cell = row.getCell(c);
+          cell.fill = fill;
+          cell.font = { bold: true, size: p.kind === 1 ? 11 : 10 };
+          cell.border = border;
+        }
+      }
+    });
+    if (!plan.length) ws.getCell(R0, 1).value = "Sin actividades dentro de este horizonte.";
+    let tr = lastRow + 2;
+    const totRow = tr;
+    const totals = dailyTotals(list);
+    const rowsTot = [{ label: "Personal total por d\xEDa", fn: (Ld) => `SUBTOTAL(9,${Ld}${R0}:${Ld}${lastRow})`, vals: totals, bold: true }];
+    for (const d of DISC) rowsTot.push({ label: "Personal \xB7 " + d.name, fn: (Ld) => `SUMIF($${L2["Disciplina"]}$${R0}:$${L2["Disciplina"]}$${lastRow},"${d.name}",${Ld}$${R0}:${Ld}$${lastRow})`, vals: dailyTotals(list.filter((a) => a.disciplina === d.name)), hex: d.hex });
+    for (const t of rowsTot) {
+      const row = ws.getRow(tr);
+      const lc = row.getCell(D0 - 1);
+      lc.value = t.label;
+      lc.alignment = { horizontal: "right" };
+      lc.font = { bold: true, color: t.hex ? { argb: "FF" + t.hex } : void 0 };
+      for (let i = 0; i < DAYS; i++) {
+        const c = row.getCell(D0 + i);
+        c.value = { formula: t.fn(colL(D0 + i)), result: t.vals[i] };
+        c.alignment = { horizontal: "center" };
+        c.border = border;
+        c.font = { bold: !!t.bold };
+        if (t.bold) c.fill = solid("FFD5DEE7");
+      }
+      tr++;
+    }
+    const sumLine = (rr, label, formula, result) => {
+      const row = ws.getRow(rr);
+      const c0 = row.getCell(D0 - 1);
+      c0.value = label;
+      c0.alignment = { horizontal: "right" };
+      c0.font = { bold: true };
+      const c = row.getCell(D0);
+      c.value = { formula, result };
+      c.font = { bold: true };
+    };
+    sumLine(tr + 1, "Pico de personal", `MAX(${DL0}${totRow}:${DLN}${totRow})`, Math.max(0, ...totals));
+    sumLine(tr + 2, "D\xEDas-hombre en el horizonte", `SUM(${DL0}${totRow}:${DLN}${totRow})`, totals.reduce((s, v) => s + v, 0));
+    sumLine(tr + 3, "HH plan en el horizonte", `${DL0}${tr + 2}*$B$4`, totals.reduce((s, v) => s + v, 0) * horasDia());
+    const gridRef = `${DL0}${R0}:${DLN}${lastRow}`;
+    ws.addConditionalFormatting({ ref: gridRef, rules: DISC.map((d, i) => ({
+      type: "expression",
+      priority: i + 1,
+      formulae: [`AND(ISNUMBER(${DL0}${R0}),$${L2["Disciplina"]}${R0}="${d.name}")`],
+      style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FF" + d.hex } }, font: { color: { argb: "FFFFFFFF" }, bold: true } }
+    })).concat([{ type: "expression", priority: 9, formulae: [`AND(${DL0}$${R_WORK}=0,$${L2["Disciplina"]}${R0}<>"")`], style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFF1F3F5" } } } }]) });
+    ws.addConditionalFormatting({ ref: `${DL0}${R_DATE}:${DLN}${R_DATE}`, rules: [{ type: "expression", priority: 10, formulae: [`${DL0}${R_DATE}=$B$3`], style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFF0A04B" } } } }] });
+    ws.addConditionalFormatting({ ref: `${L2["Estado"]}${R0}:${L2["Estado"]}${lastRow}`, rules: [
+      { type: "containsText", operator: "containsText", text: "Atrasada", priority: 11, style: { font: { color: { argb: "FFB3261E" }, bold: true } } },
+      { type: "containsText", operator: "containsText", text: "Completada", priority: 12, style: { font: { color: { argb: "FF2E7D4F" }, bold: true } } },
+      { type: "containsText", operator: "containsText", text: "En curso", priority: 13, style: { font: { color: { argb: "FF1F5F8B" } } } }
+    ] });
+    ws.autoFilter = { from: { row: R_DATE, column: 1 }, to: { row: R_DATE, column: C.length } };
+    const table = (title, cols, rows, opt = {}) => {
+      const sh = wb.addWorksheet(title, { views: [{ state: "frozen", ySplit: 1, xSplit: opt.xSplit || 0 }] });
+      sh.columns = cols.map((c) => ({ header: c.h, width: c.w || 12 }));
+      sh.getRow(1).eachCell((c) => {
+        c.fill = headFill;
+        c.font = headFont;
+        c.border = border;
+        c.alignment = { wrapText: true, vertical: "middle" };
+      });
+      sh.getRow(1).height = 32;
+      rows.forEach((src, i) => {
+        const R = i + 2;
+        const row = sh.getRow(R);
+        cols.forEach((c, j) => {
+          const cell = row.getCell(j + 1);
+          const v = c.f ? { formula: c.f(R), result: c.v ? c.v(src) : void 0 } : c.v(src);
+          cell.value = v == null || v === "" ? null : v;
+          if (c.fmt) cell.numFmt = c.fmt;
+          if (c.wrap) cell.alignment = { wrapText: true, vertical: "top" };
+          if (c.input) cell.fill = inputFill;
+          cell.border = border;
+        });
+      });
+      sh.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+      return sh;
+    };
+    const pred = (a) => a.pred && byUid(a.pred) ? byUid(a.pred).idTarea : null;
+    const regsSorted = [...state.regs].sort((a, b) => a.semana.localeCompare(b.semana) || a.idTarea.localeCompare(b.idTarea));
+    const actBy = (uid) => byUid(uid) || {};
+    const regOfW = (uid, semana) => state.regs.find((r2) => r2.uid === uid && r2.semana === semana);
+    const catCols = CATS.map(([c, n]) => ({ h: n, w: 9, v: (r2) => num((r2.personal || {})[c]) }));
+    table("Ejecuci\xF3n semanal", [
+      { h: "Semana (lunes)", w: 11, v: (r2) => xIso(r2.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (r2) => actBy(r2.uid).idTarea || r2.idTarea },
+      { h: "Descripci\xF3n", w: 32, v: (r2) => actBy(r2.uid).desc, wrap: true },
+      { h: "Disciplina", w: 20, v: (r2) => actBy(r2.uid).disciplina },
+      { h: "Tipo", w: 6, v: (r2) => actBy(r2.uid).tipo },
+      { h: "Sector/Zona", w: 11, v: (r2) => actBy(r2.uid).sector },
+      { h: "Comprometida", w: 11, v: (r2) => r2.comprometida },
+      { h: "Cumplida", w: 9, v: (r2) => r2.cumplida },
+      { h: "Causa no cumplimiento", w: 14, v: (r2) => r2.causaNC },
+      { h: "Turno", w: 9, v: (r2) => r2.turno },
+      { h: "D\xEDas trabajados", w: 9, v: (r2) => r2.dias },
+      { h: "Horas efectivas/d\xEDa", w: 9, v: (r2) => r2.horasDia },
+      ...catCols,
+      { h: "Personal total", w: 9, f: (R) => `SUM(M${R}:S${R})`, v: (r2) => r2.personalTotal },
+      { h: "HH trabajadas", w: 10, f: (R) => `T${R}*K${R}*L${R}`, v: (r2) => r2.hhTrab, fmt: "#,##0.0" },
+      { h: "HH extra", w: 8, v: (r2) => r2.hhExtra },
+      { h: "HH improductivas", w: 10, v: (r2) => r2.hhImprod },
+      { h: "HH perdidas", w: 9, f: (R) => `SUMIFS('P\xE9rdidas'!$G:$G,'P\xE9rdidas'!$A:$A,A${R},'P\xE9rdidas'!$B:$B,B${R})`, v: (r2) => regLostHH(r2), fmt: "#,##0.0" },
+      { h: "HH plan semana", w: 10, v: (r2) => r2.hhPlanSemana, fmt: "#,##0" },
+      { h: "% HH real vs plan", w: 9, f: (R) => `IF(Y${R}>0,U${R}/Y${R},"")`, v: (r2) => r2.hhPlanSemana ? r2.hhTrab / r2.hhPlanSemana : "", fmt: "0%" },
+      { h: "Metrado ejecutado", w: 10, v: (r2) => r2.metradoEjec },
+      { h: "Unidad", w: 7, v: (r2) => r2.unidad },
+      { h: "Productividad (HH/unidad)", w: 11, f: (R) => `IF(N(AA${R})>0,U${R}/AA${R},"")`, v: (r2) => num(r2.metradoEjec) > 0 ? r2.hhTrab / num(r2.metradoEjec) : "", fmt: "0.00" },
+      { h: "Avance acumulado", w: 9, v: (r2) => num(r2.avance) / 100, fmt: "0%" },
+      { h: "Inicio real", w: 11, v: (r2) => xIso(r2.inicioReal), fmt: DF },
+      { h: "Fin real", w: 11, v: (r2) => xIso(r2.finReal), fmt: DF },
+      { h: "Protocolos liberados", w: 9, v: (r2) => r2.protocolos },
+      { h: "No conformidades", w: 9, v: (r2) => r2.noConformidades },
+      { h: "Retrabajo (HH)", w: 9, v: (r2) => r2.retrabajoHH },
+      { h: "Incidentes", w: 9, v: (r2) => r2.incidentes },
+      { h: "Registrado por", w: 16, v: (r2) => r2.registradoPor },
+      { h: "Fuente", w: 12, v: (r2) => r2.fuente },
+      { h: "Fecha de registro", w: 16, v: (r2) => r2.fechaRegistro ? new Date(r2.fechaRegistro) : null, fmt: "dd/mm/yyyy hh:mm" },
+      { h: "Observaciones", w: 30, v: (r2) => r2.obs, wrap: true },
+      { h: "Metrado comprometido", w: 10, v: (r2) => r2.metradoComp }
+    ], regsSorted, { xSplit: 2 });
+    table("P\xE9rdidas", [
+      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
+      { h: "C\xF3digo de causa", w: 11, v: (x) => x.causa },
+      { h: "Causa", w: 34, v: (x) => name(CAUSAS, x.causa) },
+      { h: "Horas", w: 8, v: (x) => x.horas },
+      { h: "Personas", w: 9, v: (x) => x.personas },
+      { h: "HH perdidas", w: 10, f: (R) => `E${R}*F${R}`, v: (x) => num(x.horas) * num(x.personas) }
+    ], regsSorted.flatMap((r2) => (r2.perdidas || []).map((p) => ({ ...p, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
+    table("Equipos", [
+      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
+      { h: "Equipo", w: 22, v: (x) => x.equipo },
+      { h: "Capacidad", w: 10, v: (x) => x.capacidad },
+      { h: "Horas operativas", w: 10, v: (x) => x.horasOp },
+      { h: "Horas en espera", w: 10, v: (x) => x.horasEspera },
+      { h: "% espera", w: 9, f: (R) => `IF(E${R}+F${R}>0,F${R}/(E${R}+F${R}),"")`, v: (x) => num(x.horasOp) + num(x.horasEspera) > 0 ? num(x.horasEspera) / (num(x.horasOp) + num(x.horasEspera)) : "", fmt: "0%" }
+    ], regsSorted.flatMap((r2) => (r2.equipos || []).map((q) => ({ ...q, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
+    table("Restricciones", [
+      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
+      { h: "Tipo", w: 7, v: (x) => x.tipo },
+      { h: "Tipo (descripci\xF3n)", w: 20, v: (x) => name(RTIPOS, x.tipo) },
+      { h: "Descripci\xF3n", w: 40, v: (x) => x.desc, wrap: true },
+      { h: "Responsable", w: 18, v: (x) => x.responsable },
+      { h: "Fecha compromiso", w: 11, v: (x) => xIso(x.fechaCompromiso), fmt: DF },
+      { h: "Fecha liberaci\xF3n", w: 11, v: (x) => xIso(x.fechaLiberacion), fmt: DF, input: true },
+      { h: "Estado", w: 10, f: (R) => `IF(G${R}<>"","Liberada","Abierta")`, v: (x) => x.estado },
+      { h: "D\xEDas de atraso", w: 9, f: (R) => `IF(F${R}="","",MAX(0,IF(G${R}<>"",G${R},'Lookahead'!$B$3)-F${R}))`, v: (x) => x.fechaCompromiso ? Math.max(0, (x.fechaLiberacion ? toDay(x.fechaLiberacion) : today) - toDay(x.fechaCompromiso)) : "" }
+    ], [...state.restr].sort((a, b) => (a.fechaCompromiso || "").localeCompare(b.fechaCompromiso || "")));
+    table("Planes semanales", [
+      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
+      { h: "Descripci\xF3n", w: 34, v: (x) => actBy(x.uid).desc, wrap: true },
+      { h: "Metrado comprometido", w: 11, v: (x) => x.metradoComp },
+      { h: "Unidad", w: 7, v: (x) => x.unidad },
+      { h: "HH comprometidas", w: 10, v: (x) => x.hhComp, fmt: "#,##0" },
+      { h: "Congelado por", w: 16, v: (x) => x.congeladoPor },
+      { h: "Metrado ejecutado", w: 10, f: (R) => `SUMIFS(${ESH}!$AA:$AA,${ESH}!$A:$A,A${R},${ESH}!$B:$B,B${R})`, v: (x) => regOfW(x.uid, x.semana)?.metradoEjec ?? 0 },
+      { h: "\xBFCumplida?", w: 9, v: (x) => regOfW(x.uid, x.semana)?.cumplida || "" }
+    ], [...state.planes].sort((a, b) => a.semana.localeCompare(b.semana)).flatMap((p) => (p.compromisos || []).map((c) => ({ ...c, semana: p.semana, congeladoPor: p.congeladoPor }))));
+    const pac = pacSeries();
+    table("Indicadores", [
+      { h: "Semana (lunes)", w: 12, v: (p) => xDate(p.w), fmt: DF },
+      { h: "Compromisos", w: 12, v: (p) => p.comprometidas },
+      { h: "Cumplidos", w: 10, v: (p) => p.cumplidas },
+      { h: "PAC", w: 8, f: (R) => `IF(B${R}>0,C${R}/B${R},"")`, v: (p) => p.pac ?? "", fmt: "0%" },
+      { h: "Plan congelado", w: 10, v: (p) => p.congelado ? "S\xED" : "No" },
+      { h: "HH plan (programa)", w: 11, f: (R) => `SUMIFS(${ESH}!$Y:$Y,${ESH}!$A:$A,A${R})`, fmt: "#,##0" },
+      { h: "HH trabajadas", w: 10, f: (R) => `SUMIFS(${ESH}!$U:$U,${ESH}!$A:$A,A${R})`, fmt: "#,##0" },
+      { h: "HH real / plan", w: 10, f: (R) => `IF(F${R}>0,G${R}/F${R},"")`, fmt: "0%" },
+      { h: "HH perdidas", w: 10, f: (R) => `SUMIFS('P\xE9rdidas'!$G:$G,'P\xE9rdidas'!$A:$A,A${R})`, fmt: "#,##0.0" },
+      { h: "% HH perdidas", w: 10, f: (R) => `IF(G${R}+I${R}>0,I${R}/(G${R}+I${R}),"")`, fmt: "0%" }
+    ], pac);
+    const sc = sCurve();
+    table("Curva S", [
+      { h: "Semana", w: 8, v: (x) => "S" + (sc.weeks.indexOf(x) + 1) },
+      { h: "Lunes", w: 11, v: (x) => xDate(x.w), fmt: DF },
+      { h: "PV semana", w: 10, v: (x) => x.pv, fmt: "#,##0" },
+      { h: "PV acumulado", w: 11, v: (x) => x.pvCum, fmt: "#,##0" },
+      { h: "EV acumulado", w: 11, v: (x) => x.evCum, fmt: "#,##0" },
+      { h: "AC semana", w: 10, v: (x) => x.ac, fmt: "#,##0" },
+      { h: "AC acumulado", w: 11, v: (x) => x.acCum, fmt: "#,##0" },
+      { h: "SPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,D${R}>0),E${R}/D${R},"")`, fmt: "0.00" },
+      { h: "CPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,N(G${R})>0),E${R}/G${R},"")`, fmt: "0.00" },
+      { h: "% plan", w: 8, f: (R) => `IF(${sc.bac}>0,D${R}/${sc.bac},"")`, fmt: "0%" },
+      { h: "% ganado", w: 8, f: (R) => `IF(AND(${sc.bac}>0,N(E${R})>0),E${R}/${sc.bac},"")`, fmt: "0%" }
+    ], sc.weeks);
+    const lb = latestBaseline();
+    if (lb) table(`L\xEDnea base v${lb.version}`, [
+      { h: "Id Tarea", w: 17, v: (t) => t.idTarea },
+      { h: "Descripci\xF3n", w: 36, v: (t) => t.desc, wrap: true },
+      { h: "Disciplina", w: 20, v: (t) => t.disciplina },
+      { h: "Tipo", w: 6, v: (t) => t.tipo },
+      { h: "Sector/Zona", w: 11, v: (t) => t.sector },
+      { h: "Inicio LB", w: 11, v: (t) => xIso(t.inicio), fmt: DF },
+      { h: "Fin LB", w: 11, v: (t) => xIso(t.fin), fmt: DF },
+      { h: "Personal", w: 8, v: (t) => t.personal },
+      { h: "Metrado", w: 9, v: (t) => t.metrado },
+      { h: "Unidad", w: 7, v: (t) => t.unidad },
+      { h: "HH plan", w: 10, v: (t) => t.hhPlan, fmt: "#,##0" },
+      { h: "Inicio actual", w: 11, v: (t) => xIso(byUid(t.uid)?.inicio), fmt: DF },
+      { h: "Fin actual", w: 11, v: (t) => xIso(byUid(t.uid)?.fin), fmt: DF },
+      { h: "Desv\xEDo fin (d)", w: 9, f: (R) => `IF(M${R}="","",M${R}-G${R})`, v: (t) => byUid(t.uid) ? toDay(byUid(t.uid).fin) - toDay(t.fin) : "" },
+      { h: "HH real (acum.)", w: 10, f: (R) => `SUMIFS(${ESH}!$U:$U,${ESH}!$B:$B,A${R})`, v: (t) => hhRealOf(t.uid), fmt: "#,##0" }
+    ], lb.tareas);
+    table("Registro", [
+      { h: "Id Tarea", w: 17, v: (a) => a.idTarea },
+      { h: "Descripci\xF3n", w: 38, v: (a) => a.desc, wrap: true },
+      { h: "Disciplina", w: 20, v: (a) => a.disciplina },
+      { h: "Especialidad", w: 18, v: (a) => a.especialidad },
+      { h: "Tipo", w: 6, v: (a) => a.tipo },
+      { h: "Tipo (descripci\xF3n)", w: 24, v: (a) => tipoName(a.tipo) },
+      { h: "Sector/Zona", w: 11, v: (a) => a.sector },
+      { h: "Nombre del sector", w: 22, v: (a) => sectores()[a.sector] },
+      { h: "Nivel", w: 9, v: (a) => a.nivel },
+      { h: "Ejes", w: 10, v: (a) => a.ejes },
+      { h: "Plano de referencia", w: 18, v: (a) => a.plano },
+      { h: "Predecesora", w: 17, v: pred },
+      { h: "Responsable", w: 16, v: (a) => a.resp },
+      { h: "Personal", w: 8, v: (a) => num(a.personal) },
+      { h: "Metrado plan", w: 9, v: (a) => a.metrado },
+      { h: "Unidad", w: 7, v: (a) => a.unidad },
+      { h: "Peso (t)", w: 8, v: (a) => a.peso },
+      { h: "Altura izaje (m)", w: 9, v: (a) => a.altura },
+      { h: "Inicio", w: 11, v: (a) => xIso(a.inicio), fmt: DF },
+      { h: "Fin", w: 11, v: (a) => xIso(a.fin), fmt: DF },
+      { h: "Duraci\xF3n (d)", w: 9, f: (R) => `T${R}-S${R}+1`, v: durOf },
+      { h: "HH plan", w: 10, v: (a) => hhPlan(a), fmt: "#,##0" },
+      { h: "Observaciones", w: 30, v: (a) => a.obs, wrap: true }
+    ], sortActs(state.acts));
+    const wc = wb.addWorksheet("Cat\xE1logos");
+    const blocks = [
+      ["Tipos de actividad", ["Disciplina", "C\xF3digo", "Tipo"], DISC.flatMap((d) => d.tipos.map(([c, n]) => [d.name, c, n]))],
+      ["Causas", ["C\xF3digo", "Causa"], CAUSAS],
+      ["Tipos de restricci\xF3n", ["C\xF3digo", "Tipo"], RTIPOS],
+      ["Categor\xEDas de personal", ["C\xF3digo", "Categor\xEDa"], CATS],
+      ["Sectores", ["C\xF3digo", "Nombre"], Object.entries(sectores())]
+    ];
+    let cc = 1;
+    for (const [title, heads, rows] of blocks) {
+      wc.getCell(1, cc).value = title;
+      wc.getCell(1, cc).font = { bold: true };
+      heads.forEach((h, j) => {
+        const c = wc.getCell(2, cc + j);
+        c.value = h;
+        c.fill = headFill;
+        c.font = headFont;
+        wc.getColumn(cc + j).width = j === heads.length - 1 ? 30 : 12;
+      });
+      rows.forEach((row, i) => row.forEach((v, j) => wc.getCell(3 + i, cc + j).value = v));
+      cc += heads.length + 1;
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    await saveFile(`Lookahead ${fileBase()} ${toIso(h0)}.xlsx`, new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  }
+
+  // js/io/respaldo.js
+  var FORMATO = "lookahead-respaldo";
+  var VERSION = 1;
+  var ETIQ = { tareas: "actividades", lineasBase: "l\xEDneas base", planesSemanales: "planes semanales", registros: "registros", cortes: "cortes", restricciones: "restricciones" };
+  async function guardarRespaldo() {
+    if (!state.pid) return toast("Abre un proyecto primero.");
+    const d = datosProyecto();
+    const obj = { formato: FORMATO, version: VERSION, exportado: (/* @__PURE__ */ new Date()).toISOString(), ...d };
+    await saveFile(`Respaldo ${fileBase()} ${toIso(todayDay())}.json`, new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" }));
+  }
+  function validar(obj) {
+    if (!obj || obj.formato !== FORMATO) throw new Error("El archivo no es un respaldo de esta herramienta.");
+    if (obj.version > VERSION) throw new Error("El respaldo es de una versi\xF3n m\xE1s nueva de la herramienta.");
+    if (!obj.proyecto || typeof obj.proyecto !== "object" || !obj.colecciones) throw new Error("El respaldo est\xE1 incompleto.");
+    for (const c of RESPALDO_COLS) if (obj.colecciones[c] != null && !Array.isArray(obj.colecciones[c])) throw new Error(`La secci\xF3n "${c}" del respaldo no es v\xE1lida.`);
+    return obj;
+  }
+  async function restaurarRespaldo() {
+    if (state.readOnly) return toast("Este lookahead es de solo lectura para ti.");
+    const file = await pickFile(".json,application/json");
+    if (!file) return;
+    let r;
+    try {
+      r = validar(JSON.parse(await file.text()));
+    } catch (e) {
+      toast(e instanceof SyntaxError ? "El archivo no es un JSON v\xE1lido." : e.message, 5e3);
+      return;
+    }
+    const cols = r.colecciones;
+    const nombre = r.proyecto.nombre || "Proyecto restaurado";
+    const existe = state.projects.find((p) => p.pid === r.pid);
+    const resumen = RESPALDO_COLS.map((c) => `<li>${fmtN((cols[c] || []).length)} ${ETIQ[c]}</li>`).join("");
+    let sugerido2 = nombre;
+    for (let i = 2; nameTaken(sugerido2); i++) sugerido2 = `${nombre} (restaurado${i > 2 ? " " + (i - 1) : ""})`;
+    openModal(`<h2 id="modalTitle">Restaurar respaldo</h2>
+    <p class="help" style="margin:0"><strong>${esc(nombre)}</strong> \xB7 guardado el ${esc(new Date(r.exportado || 0).toLocaleString("es-PE"))}</p>
+    <ul class="help" style="margin:4px 0 0">${resumen}</ul>
+    <form id="rForm" novalidate>
+      <fieldset class="radio-opts"><legend>C\xF3mo cargarlo</legend>
+        <label><input type="radio" name="modo" value="nuevo" checked> Como proyecto nuevo</label>
+        <label><input type="radio" name="modo" value="reemplazar"${existe ? "" : " disabled"}> Reemplazar "${esc(existe ? existe.nombre : nombre)}"${existe ? "" : " (no existe aqu\xED)"}</label>
+      </fieldset>
+      <div class="field" id="r-nameBox"><label for="r-name">Nombre del proyecto nuevo <span class="req">*</span></label><input id="r-name" maxlength="60" value="${esc(sugerido2)}" autocomplete="off"></div>
+      <div class="help" id="r-warn" hidden>Se borra el contenido actual de ese proyecto y se reemplaza por el del respaldo. No se puede deshacer; si dudas, guarda antes un respaldo del proyecto actual.</div>
+      <div class="err" id="r-err"></div>
+      <div class="modal-actions"><button type="button" class="btn" data-close>Cancelar</button><button type="submit" class="btn btn-primary">Restaurar</button></div>
+    </form>`, (box) => {
+      const modo = () => box.querySelector("input[name=modo]:checked").value;
+      box.querySelectorAll("input[name=modo]").forEach((x) => x.addEventListener("change", () => {
+        box.querySelector("#r-nameBox").hidden = modo() !== "nuevo";
+        box.querySelector("#r-warn").hidden = modo() === "nuevo";
+      }));
+      box.querySelector("#rForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const err = box.querySelector("#r-err");
+        const btn = box.querySelector("button[type=submit]");
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        let pid, proyecto;
+        if (modo() === "nuevo") {
+          const n = box.querySelector("#r-name").value.trim();
+          if (!n) {
+            err.textContent = "Escribe un nombre.";
+            return;
+          }
+          if (nameTaken(n)) {
+            err.textContent = "Ya existe un proyecto con ese nombre. Elige otro.";
+            return;
+          }
+          pid = nuevoPid(n);
+          proyecto = { ...r.proyecto, nombre: n, modificado: now, restauradoDe: nombre };
+        } else {
+          pid = r.pid;
+          proyecto = { ...r.proyecto, modificado: now };
+        }
+        btn.disabled = true;
+        btn.textContent = "Restaurando\u2026";
+        try {
+          await escribirProyecto(pid, proyecto, cols, modo() === "reemplazar");
+          closeModal();
+          toast(`Respaldo "${proyecto.nombre}" restaurado.`, 4e3);
+        } catch (ex) {
+          btn.disabled = false;
+          btn.textContent = "Restaurar";
+          writeFailed(ex);
+        }
+      });
+    });
+  }
+
+  // js/views/proyectos.js
+  function nameDialog({ title, text, value, button, onOk }) {
+    openModal(`<h2 id="modalTitle">${esc(title)}</h2><p class="help" style="margin:0">${esc(text)}</p>
+    <form id="mForm" novalidate><div class="field"><label for="m-name">Nombre del proyecto <span class="req">*</span></label>
+    <input id="m-name" maxlength="60" value="${esc(value || "")}" autocomplete="off"><div class="err" id="m-err"></div></div>
+    <div class="modal-actions"><button type="button" class="btn" data-close>Cancelar</button><button type="submit" class="btn btn-primary">${esc(button)}</button></div></form>`, (box) => {
+      box.querySelector("#mForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const n = box.querySelector("#m-name").value.trim();
+        const err = box.querySelector("#m-err");
+        if (!n) {
+          err.textContent = "Escribe un nombre.";
+          return;
+        }
+        if (nameTaken(n)) {
+          err.textContent = "Ya existe un proyecto con ese nombre. Elige otro.";
+          return;
+        }
+        const btn = box.querySelector("button[type=submit]");
+        btn.disabled = true;
+        btn.textContent = "Guardando\u2026";
+        try {
+          await onOk(n);
+          closeModal();
+        } catch (ex) {
+          btn.disabled = false;
+          btn.textContent = button;
+          writeFailed(ex);
+        }
+      });
+    });
+    $("m-name")?.select();
+  }
+  function newProject() {
+    if (state.readOnly) return toast("Este lookahead es de solo lectura para ti.");
+    nameDialog({
+      title: "Nuevo proyecto",
+      text: "Se crea un proyecto vac\xEDo. El proyecto actual queda guardado y puedes volver a \xE9l con Abrir.",
+      value: "",
+      button: "Crear proyecto",
+      onOk: async (n) => {
+        await createProject(n);
+        toast(`Proyecto "${n}" creado.`);
+      }
+    });
+  }
+  function saveAsProject() {
+    if (!requirePid()) return;
+    nameDialog({
+      title: "Guardar como\u2026",
+      text: "Crea una copia completa del proyecto actual (actividades, l\xEDneas base, planes semanales, registros, cortes y restricciones) con otro nombre, y la abre.",
+      value: P().nombre + " (copia)",
+      button: "Guardar copia",
+      onOk: async (n) => {
+        await copyProject(n);
+        toast(`Guardado como "${n}".`);
+      }
+    });
+  }
+  function openDialog() {
+    const list = state.projects;
+    openModal(`<h2 id="modalTitle">Abrir proyecto</h2>
+    ${list.length ? `<div class="proj-list">${list.map((p) => `<div class="proj-item${p.pid === state.pid ? " current" : ""}"><div><div class="nm">${esc(p.nombre || p.pid)}</div><div class="help">Horizonte desde ${esc(fmtIso(p.inicio))}${p.modificado ? " \xB7 modificado " + esc(fmt(toDay(p.modificado.slice(0, 10)), true)) : ""}</div></div>${p.pid === state.pid ? '<span class="pill info">Abierto</span>' : `<button class="btn btn-sm btn-primary" data-pid="${esc(p.pid)}">Abrir</button>`}</div>`).join("")}</div>` : '<p class="help">Todav\xEDa no hay proyectos guardados.</p>'}
+    <div class="modal-actions"><button class="btn" data-restore${state.readOnly ? " disabled" : ""}>Restaurar respaldo\u2026</button><button class="btn" data-ejemplos${state.readOnly ? " disabled" : ""}>Cargar proyectos de ejemplo</button><button class="btn" data-close>Cerrar</button></div>`, (box) => {
+      box.addEventListener("click", async (e) => {
+        if (e.target.closest("[data-restore]")) {
+          closeModal();
+          restaurarRespaldo();
+          return;
+        }
+        const ej = e.target.closest("[data-ejemplos]");
+        if (ej) {
+          ej.disabled = true;
+          try {
+            if (await cargarEjemplos()) closeModal();
+          } catch (ex) {
+            writeFailed(ex);
+          } finally {
+            ej.disabled = false;
+          }
+          return;
+        }
+        const b = e.target.closest("[data-pid]");
+        if (b) {
+          openProject(b.dataset.pid);
+          closeModal();
+          toast(`Proyecto "${P().nombre}" abierto.`);
+        }
+      });
+    });
+  }
+  function applyCfg() {
+    $("projName").value = P().nombre || "";
+    $("startDate").value = toIso(startDay());
+    $("workWeek").value = P().jornada || "7";
+    $("hoursDay").value = horasDia();
+  }
+  var setStart = (day) => {
+    if (requirePid()) saveProj({ inicio: toIso(day) }).catch(writeFailed);
+  };
+  function initProyectos() {
+    $("btnNew").addEventListener("click", newProject);
+    $("btnSaveAs").addEventListener("click", saveAsProject);
+    $("btnOpen").addEventListener("click", openDialog);
+    $("btnBackup").addEventListener("click", () => guardarRespaldo().catch(writeFailed));
+    $("noProject").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]");
+      if (b) ({ new: newProject, open: openDialog, restore: restaurarRespaldo })[b.dataset.act]();
+    });
+    $("startDate").addEventListener("change", (e) => {
+      const d = toDay(e.target.value);
+      if (!isNaN(d)) setStart(d);
+    });
+    $("prevWeek").addEventListener("click", () => setStart(startDay() - 7));
+    $("nextWeek").addEventListener("click", () => setStart(startDay() + 7));
+    $("thisWeek").addEventListener("click", () => setStart(mondayOf(todayDay())));
+    $("workWeek").addEventListener("change", (e) => {
+      if (requirePid()) saveProj({ jornada: e.target.value }).catch(writeFailed);
+    });
+    $("hoursDay").addEventListener("change", (e) => {
+      const h = num(e.target.value);
+      if (h > 0 && h <= 24 && requirePid()) saveProj({ horasDia: h }).catch(writeFailed);
+      else applyCfg();
+    });
+    $("projName").addEventListener("change", (e) => {
+      const n = e.target.value.trim();
+      if (!n || n.toLowerCase() !== (P().nombre || "").toLowerCase() && nameTaken(n)) {
+        toast(n ? "Ya existe un proyecto con ese nombre." : "El nombre no puede quedar vac\xEDo.");
+        applyCfg();
+        return;
+      }
+      if (requirePid()) saveProj({ nombre: n }).catch(writeFailed);
     });
   }
 
@@ -2823,157 +3549,6 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     });
   }
 
-  // js/model/metrics.js
-  function refTasks() {
-    const b = latestBaseline();
-    if (b) return { tasks: b.tareas || [], jornada: b.jornada, horas: num(b.horasDia) || 10, isBaseline: true };
-    return { tasks: state.acts, jornada: state.proj?.jornada, horas: num(state.proj?.horasDia) || 10, isBaseline: false };
-  }
-  var hhPerDay = (t, horas) => num(t.personal) * horas;
-  function cutWeek() {
-    const ws = state.regs.map((r) => r.semana).sort();
-    return ws.length ? toDay(ws[ws.length - 1]) : null;
-  }
-  function weekRange() {
-    const days = [];
-    for (const t of refTasks().tasks) days.push(toDay(t.inicio), toDay(t.fin));
-    for (const a of state.acts) days.push(toDay(a.inicio), toDay(a.fin));
-    for (const r of state.regs) days.push(toDay(r.semana));
-    const ok = days.filter((d) => !isNaN(d));
-    if (!ok.length) return [];
-    const w0 = mondayOf(Math.min(...ok)), w1 = mondayOf(Math.max(...ok));
-    const out = [];
-    for (let w = w0; w <= w1; w += 7) out.push(w);
-    return out;
-  }
-  function avanceAt(uid, wIso, metradoPlan) {
-    const regs = state.regs.filter((r) => r.uid === uid && r.semana <= wIso).sort((a, b) => a.semana.localeCompare(b.semana));
-    if (!regs.length) return 0;
-    const acum = regs.reduce((s, r) => s + num(r.metradoEjec), 0);
-    const last = regs[regs.length - 1];
-    const total = metradoPlan ?? byUid(uid)?.metrado;
-    return last.finReal ? 100 : avanceFrom(total, acum, last.avance);
-  }
-  function sCurve() {
-    const { tasks, jornada, horas } = refTasks();
-    const weeks = weekRange();
-    const cut = cutWeek();
-    const bac = tasks.reduce((s, t) => s + (t.hhPlan != null ? num(t.hhPlan) : 0), 0) || tasks.reduce((s, t) => s + hhPerDay(t, horas) * workDays(t, jornada), 0);
-    let pvCum = 0, acCum = 0;
-    return { bac, cut, weeks: weeks.map((w) => {
-      let pv = 0;
-      for (const t of tasks) for (let d = Math.max(w, toDay(t.inicio)); d <= Math.min(w + 6, toDay(t.fin)); d++) if (isWork(d, jornada)) pv += hhPerDay(t, horas);
-      pvCum += pv;
-      const wIso = toIso(w);
-      const ac = state.regs.filter((r) => r.semana === wIso).reduce((s, r) => s + regHH(r), 0);
-      acCum += ac;
-      const real = cut != null && w <= cut;
-      const evCum = real ? tasks.reduce((s, t) => s + avanceAt(t.uid, wIso, t.metrado) / 100 * num(t.hhPlan), 0) : null;
-      return { w, pv, pvCum, ac: real ? ac : null, acCum: real ? acCum : null, evCum };
-    }) };
-  }
-  function workDays(t, jornada) {
-    let n = 0;
-    for (let d = toDay(t.inicio); d <= toDay(t.fin); d++) if (isWork(d, jornada)) n++;
-    return n;
-  }
-  function kpisAtCut() {
-    const s = sCurve();
-    const last = s.weeks.filter((x) => x.evCum != null).pop();
-    if (!last) return { bac: s.bac, cut: null };
-    const pv = last.pvCum, ev = last.evCum, ac = last.acCum;
-    const spi = pv ? ev / pv : null, cpi = ac ? ev / ac : null;
-    return { bac: s.bac, cut: s.cut, pv, ev, ac, spi, cpi, eac: cpi ? s.bac / cpi : null, avance: s.bac ? ev / s.bac : null, avancePlan: s.bac ? pv / s.bac : null };
-  }
-  function pacSeries() {
-    const weeks = /* @__PURE__ */ new Set([...state.planes.map((p) => p.semana), ...state.regs.map((r) => r.semana)]);
-    return [...weeks].sort().map((wIso) => {
-      const plan = planOf(toDay(wIso));
-      const regs = state.regs.filter((r) => r.semana === wIso);
-      const comp = plan ? (plan.compromisos || []).filter((c) => c.comprometida !== false).map((c) => c.uid) : regs.filter((r) => r.comprometida === "S\xED").map((r) => r.uid);
-      const done = comp.filter((uid) => regs.find((r) => r.uid === uid)?.cumplida === "S\xED").length;
-      const conReg = comp.filter((uid) => regs.some((r) => r.uid === uid)).length;
-      return { w: toDay(wIso), comprometidas: comp.length, cumplidas: done, registradas: conReg, pac: comp.length && conReg ? done / comp.length : null, congelado: !!plan };
-    });
-  }
-  function causasNC() {
-    const m = /* @__PURE__ */ new Map();
-    for (const r of state.regs) if (r.cumplida === "No" && r.causaNC) m.set(r.causaNC, (m.get(r.causaNC) || 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([causa, n]) => ({ causa, n }));
-  }
-  function personalSemanal() {
-    const { tasks, jornada } = refTasks();
-    const cut = cutWeek();
-    return weekRange().map((w) => {
-      let wd = 0;
-      for (let d = w; d < w + 7; d++) if (isWork(d, jornada)) wd++;
-      let dh = 0;
-      for (const t of tasks) for (let d = Math.max(w, toDay(t.inicio)); d <= Math.min(w + 6, toDay(t.fin)); d++) if (isWork(d, jornada)) dh += num(t.personal);
-      const regs = state.regs.filter((r) => r.semana === toIso(w));
-      const dhReal = regs.reduce((s, r) => s + num(r.personalTotal) * num(r.dias), 0);
-      return { w, plan: wd ? dh / wd : 0, real: cut != null && w <= cut ? wd ? dhReal / wd : 0 : null };
-    });
-  }
-  function paretoPerdidas() {
-    const m = /* @__PURE__ */ new Map();
-    for (const r of state.regs) for (const p of r.perdidas || []) if (p.causa) m.set(p.causa, (m.get(p.causa) || 0) + num(p.horas) * num(p.personas));
-    const rows = [...m.entries()].map(([causa, hh]) => ({ causa, hh })).filter((x) => x.hh > 0).sort((a, b) => b.hh - a.hh);
-    const total = rows.reduce((s, x) => s + x.hh, 0);
-    let acc = 0;
-    for (const x of rows) {
-      acc += x.hh;
-      x.acumPct = total ? acc / total : 0;
-    }
-    return { rows, total };
-  }
-  function productividadPorTipo() {
-    const { tasks } = refTasks();
-    const cut = cutWeek();
-    if (cut == null) return [];
-    const cutIso = toIso(cut);
-    const m = /* @__PURE__ */ new Map();
-    for (const t of tasks) {
-      const ac = state.regs.filter((r) => r.uid === t.uid).reduce((s, r) => s + regHH(r), 0);
-      const ev = avanceAt(t.uid, cutIso, t.metrado) / 100 * num(t.hhPlan);
-      if (!ac && !ev) continue;
-      const x = m.get(t.tipo) || { tipo: t.tipo, disciplina: t.disciplina, ac: 0, ev: 0, n: 0 };
-      x.ac += ac;
-      x.ev += ev;
-      x.n++;
-      m.set(t.tipo, x);
-    }
-    return [...m.values()].filter((x) => x.ev > 0).map((x) => ({ ...x, pf: x.ac / x.ev }));
-  }
-  function asBuiltSegments(uid, jornada) {
-    const regs = state.regs.filter((r) => r.uid === uid).sort((a, b) => a.semana.localeCompare(b.semana));
-    const ini = regs.find((r) => r.inicioReal)?.inicioReal;
-    const fin = regs.find((r) => r.finReal)?.finReal;
-    const days = [];
-    for (const r of regs) {
-      const w = toDay(r.semana);
-      let left = Math.round(num(r.dias));
-      const from = ini && toDay(ini) > w ? toDay(ini) : w;
-      const to = fin && toDay(fin) < w + 6 ? toDay(fin) : w + 6;
-      for (let d = from; d <= to && left > 0; d++) if (isWork(d, jornada)) {
-        days.push(d);
-        left--;
-      }
-    }
-    const segs = [];
-    for (const d of days.sort((a, b) => a - b)) {
-      const s = segs[segs.length - 1];
-      if (s && nextWork(s.d1, jornada) === d) s.d1 = d;
-      else segs.push({ d0: d, d1: d });
-    }
-    return { segs, inicioReal: ini || "", finReal: fin || "" };
-  }
-  function nextWork(d, jornada) {
-    do
-      d++;
-    while (!isWork(d, jornada));
-    return d;
-  }
-
   // js/views/asbuilt.js
   var DAY_W = 14;
   function rowsData() {
@@ -3291,453 +3866,6 @@ Factor ${fmtN(x.pf, 2)}` })),
     });
   }
 
-  // js/io/excel-report.js
-  var fileBase = () => (P().nombre || "proyecto").replace(/[\\/:*?"<>|]/g, "").trim();
-  async function exportExcel() {
-    if (!state.pid) return toast("Abre un proyecto primero.");
-    if (!window.ExcelJS) return toast("No se pudo cargar el generador de Excel. Revisa tu conexi\xF3n y recarga la p\xE1gina.");
-    const h0 = startDay(), today = todayDay();
-    const xDate = (day) => new Date(day * MS);
-    const xIso = (iso) => iso ? xDate(toDay(iso)) : null;
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "Lookahead de Obra";
-    wb.created = /* @__PURE__ */ new Date();
-    wb.calcProperties.fullCalcOnLoad = true;
-    const thin = { style: "thin", color: { argb: "FFC9D1DA" } };
-    const border = { top: thin, left: thin, bottom: thin, right: thin };
-    const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
-    const headFill = solid("FF1F5F8B"), headFont = { bold: true, color: { argb: "FFFFFFFF" } };
-    const inputFill = solid("FFFFF1D6");
-    const DF = "dd/mm/yyyy";
-    const ESH = "'Ejecuci\xF3n semanal'";
-    const C = ["Id Tarea", "Descripci\xF3n", "Disciplina", "Especialidad", "Tipo", "Sector/Zona", "Nivel", "Ejes", "Plano de referencia", "Predecesora", "Responsable", "Personal", "Metrado plan", "Unidad", "Inicio", "Fin", "Duraci\xF3n (d)", "D\xEDas-hombre (horizonte)", "HH plan (horizonte)", "HH real (acum.)", "% Avance", "Estado", "Observaciones"];
-    const W = [17, 38, 20, 18, 6, 11, 9, 10, 18, 17, 16, 8, 9, 7, 11, 11, 9, 11, 11, 11, 8, 12, 30];
-    const col2 = Object.fromEntries(C.map((n, i) => [n, i + 1]));
-    const L2 = Object.fromEntries(C.map((n, i) => [n, colL(i + 1)]));
-    const D0 = C.length + 1, DL0 = colL(D0), DLN = colL(D0 + DAYS - 1);
-    const R_WEEK = 5, R_WORK = 6, R_DOW = 7, R_DATE = 8, R0 = 9;
-    const ws = wb.addWorksheet("Lookahead", { views: [{ state: "frozen", xSplit: 2, ySplit: R_DATE }], properties: { outlineProperties: { summaryBelow: false } } });
-    W.forEach((w, i) => ws.getColumn(i + 1).width = w);
-    for (let i = 0; i < DAYS; i++) ws.getColumn(D0 + i).width = 4.8;
-    ws.getCell("A1").value = P().nombre || "Proyecto";
-    ws.getCell("A1").font = { bold: true, size: 14 };
-    ws.getCell("A2").value = `Lookahead de 3 semanas: ${fmt(h0, true)} al ${fmt(h0 + DAYS - 1, true)}` + (latestBaseline() ? ` \xB7 L\xEDnea base v${latestBaseline().version}` : "");
-    ws.getCell("A2").font = { color: { argb: "FF5A6876" } };
-    ws.getCell("A3").value = "Fecha de control";
-    ws.getCell("A3").font = { bold: true };
-    ws.getCell("B3").value = { formula: "TODAY()", result: xDate(today) };
-    ws.getCell("B3").numFmt = DF;
-    ws.getCell("B3").fill = inputFill;
-    ws.getCell("B3").alignment = { horizontal: "left" };
-    ws.getCell("C3").value = "Reemplaza la f\xF3rmula por una fecha fija para evaluar el avance a un corte.";
-    ws.getCell("C3").font = { italic: true, size: 9, color: { argb: "FF5A6876" } };
-    ws.getCell("A4").value = "Horas por d\xEDa";
-    ws.getCell("A4").font = { bold: true };
-    ws.getCell("B4").value = horasDia();
-    ws.getCell("B4").fill = inputFill;
-    ws.getCell("B4").alignment = { horizontal: "left" };
-    for (let w = 0; w < 3; w++) {
-      const c0 = D0 + w * 7;
-      ws.mergeCells(R_WEEK, c0, R_WEEK, c0 + 6);
-      const c = ws.getCell(R_WEEK, c0);
-      c.value = `Semana ${w + 1}`;
-      c.fill = headFill;
-      c.font = headFont;
-      c.alignment = { horizontal: "center" };
-    }
-    const note = (r2, text, italic) => {
-      const c = ws.getCell(r2, D0 - 1);
-      c.value = text;
-      c.alignment = { horizontal: "right" };
-      c.font = { size: 9, italic: !!italic, color: { argb: "FF5A6876" } };
-    };
-    note(R_WORK, "Laborable (1 = s\xED) \u2192");
-    note(R_DOW, "Cambia la primera fecha para mover el horizonte \u2192", true);
-    for (let i = 0; i < DAYS; i++) {
-      const d = h0 + i, cc2 = D0 + i, L_ = colL(cc2);
-      const cw = ws.getCell(R_WORK, cc2);
-      cw.value = isWork(d) ? 1 : 0;
-      cw.alignment = { horizontal: "center" };
-      cw.font = { size: 9 };
-      cw.fill = inputFill;
-      cw.border = border;
-      const cd = ws.getCell(R_DOW, cc2);
-      cd.value = { formula: `MID("DLMMJVS",WEEKDAY(${L_}${R_DATE}),1)`, result: DOW[dow(d)] };
-      cd.alignment = { horizontal: "center" };
-      cd.font = { size: 9, color: { argb: "FF5A6876" } };
-      const ct = ws.getCell(R_DATE, cc2);
-      ct.value = i === 0 ? xDate(d) : { formula: `${colL(cc2 - 1)}${R_DATE}+1`, result: xDate(d) };
-      ct.numFmt = "dd";
-      ct.alignment = { horizontal: "center" };
-      ct.font = { bold: true, size: 9 };
-      ct.fill = solid("FFE9EDF1");
-      ct.border = border;
-    }
-    ws.getCell(R_DATE, D0).fill = inputFill;
-    C.forEach((n, i) => {
-      const c = ws.getCell(R_DATE, i + 1);
-      c.value = n;
-      c.fill = headFill;
-      c.font = headFont;
-      c.border = border;
-      c.alignment = { vertical: "middle", wrapText: true };
-    });
-    ws.getRow(R_DATE).height = 30;
-    const list = sortActs(state.acts).filter(inHorizon);
-    const plan = [];
-    for (const g1 of groupTree(list, "sector")) {
-      plan.push({ kind: 1, g: g1 });
-      for (const g2 of g1.children) {
-        plan.push({ kind: 2, g: g2 });
-        for (const a of g2.acts) plan.push({ kind: 3, a });
-      }
-    }
-    let r = R0;
-    plan.forEach((p) => {
-      p.row = r++;
-    });
-    const lastRow = Math.max(R0, r - 1);
-    const endOf = (idx2) => {
-      const lvl = plan[idx2].kind;
-      let j = idx2 + 1;
-      while (j < plan.length && plan[j].kind > lvl) j++;
-      return plan[j - 1].row;
-    };
-    const hhRealOf = (uid) => state.regs.filter((x) => x.uid === uid).reduce((s, x) => s + num(x.hhTrab), 0);
-    plan.forEach((p, idx2) => {
-      const row = ws.getRow(p.row);
-      const R = p.row;
-      if (p.kind === 3) {
-        const a = p.a;
-        row.outlineLevel = 2;
-        const lr = latestReg(a.uid);
-        const vals = {
-          "Id Tarea": a.idTarea,
-          "Descripci\xF3n": a.desc,
-          "Disciplina": a.disciplina,
-          "Especialidad": a.especialidad || null,
-          "Tipo": a.tipo,
-          "Sector/Zona": a.sector,
-          "Nivel": a.nivel || null,
-          "Ejes": a.ejes || null,
-          "Plano de referencia": a.plano || null,
-          "Predecesora": a.pred && byUid(a.pred) ? byUid(a.pred).idTarea : null,
-          "Responsable": a.resp || null,
-          "Personal": num(a.personal),
-          "Metrado plan": a.metrado ?? null,
-          "Unidad": a.unidad || null,
-          "Inicio": xIso(a.inicio),
-          "Fin": xIso(a.fin),
-          "% Avance": lr ? num(lr.avance) / 100 : 0,
-          "Observaciones": a.obs || null
-        };
-        for (const [k, v] of Object.entries(vals)) row.getCell(col2[k]).value = v;
-        const days = Array.from({ length: DAYS }, (_, i) => personalOn(a, h0 + i));
-        const dh = days.reduce((s, v) => s + v, 0);
-        row.getCell(col2["Duraci\xF3n (d)"]).value = { formula: `${L2["Fin"]}${R}-${L2["Inicio"]}${R}+1`, result: durOf(a) };
-        row.getCell(col2["D\xEDas-hombre (horizonte)"]).value = { formula: `SUM(${DL0}${R}:${DLN}${R})`, result: dh };
-        row.getCell(col2["HH plan (horizonte)"]).value = { formula: `${L2["D\xEDas-hombre (horizonte)"]}${R}*$B$4`, result: dh * horasDia() };
-        row.getCell(col2["HH real (acum.)"]).value = { formula: `SUMIFS(${ESH}!$U:$U,${ESH}!$B:$B,${L2["Id Tarea"]}${R})`, result: hhRealOf(a.uid) };
-        const st = lr && num(lr.avance) >= 100 ? "Completada" : today > toDay(a.fin) ? "Atrasada" : today >= toDay(a.inicio) ? "En curso" : "Por iniciar";
-        row.getCell(col2["Estado"]).value = { formula: `IF(${L2["% Avance"]}${R}>=1,"Completada",IF($B$3>${L2["Fin"]}${R},"Atrasada",IF($B$3>=${L2["Inicio"]}${R},"En curso","Por iniciar")))`, result: st };
-        for (let i = 0; i < DAYS; i++) {
-          const Ld = colL(D0 + i);
-          row.getCell(D0 + i).value = { formula: `IF(AND(${Ld}$${R_DATE}>=$${L2["Inicio"]}${R},${Ld}$${R_DATE}<=$${L2["Fin"]}${R},${Ld}$${R_WORK}=1),$${L2["Personal"]}${R},"")`, result: days[i] || "" };
-          row.getCell(D0 + i).alignment = { horizontal: "center" };
-        }
-        row.getCell(col2["Inicio"]).numFmt = DF;
-        row.getCell(col2["Fin"]).numFmt = DF;
-        row.getCell(col2["HH plan (horizonte)"]).numFmt = "#,##0";
-        row.getCell(col2["HH real (acum.)"]).numFmt = "#,##0";
-        row.getCell(col2["% Avance"]).numFmt = "0%";
-        row.getCell(col2["% Avance"]).fill = inputFill;
-        row.getCell(col2["% Avance"]).dataValidation = { type: "decimal", operator: "between", allowBlank: true, formulae: [0, 1], showErrorMessage: true, errorTitle: "% Avance", error: "Ingresa un valor entre 0% y 100%." };
-        row.getCell(col2["Descripci\xF3n"]).alignment = { wrapText: true, vertical: "top" };
-        for (let c = 1; c < D0 + DAYS; c++) row.getCell(c).border = border;
-      } else {
-        const g = p.g;
-        const end = endOf(idx2);
-        const actsIn = p.kind === 1 ? g.children.flatMap((c) => c.acts) : g.acts;
-        row.outlineLevel = p.kind === 1 ? 0 : 1;
-        row.getCell(1).value = p.kind === 1 ? g.key : "  " + g.key;
-        row.getCell(2).value = p.kind === 1 ? sectores()[g.key] || null : `${actsIn.length} ${actsIn.length === 1 ? "actividad" : "actividades"}`;
-        row.getCell(col2["Inicio"]).value = { formula: `SUBTOTAL(5,${L2["Inicio"]}${R + 1}:${L2["Inicio"]}${end})`, result: xDate(Math.min(...actsIn.map((a) => toDay(a.inicio)))) };
-        row.getCell(col2["Fin"]).value = { formula: `SUBTOTAL(4,${L2["Fin"]}${R + 1}:${L2["Fin"]}${end})`, result: xDate(Math.max(...actsIn.map((a) => toDay(a.fin)))) };
-        row.getCell(col2["Inicio"]).numFmt = DF;
-        row.getCell(col2["Fin"]).numFmt = DF;
-        const tot = dailyTotals(actsIn);
-        const dh = tot.reduce((s, v) => s + v, 0);
-        for (const [k, res] of [["D\xEDas-hombre (horizonte)", dh], ["HH plan (horizonte)", dh * horasDia()], ["HH real (acum.)", actsIn.reduce((s, a) => s + hhRealOf(a.uid), 0)]]) {
-          row.getCell(col2[k]).value = { formula: `SUBTOTAL(9,${L2[k]}${R + 1}:${L2[k]}${end})`, result: res };
-          row.getCell(col2[k]).numFmt = "#,##0";
-        }
-        for (let i = 0; i < DAYS; i++) {
-          const Ld = colL(D0 + i);
-          row.getCell(D0 + i).value = { formula: `SUBTOTAL(9,${Ld}${R + 1}:${Ld}${end})`, result: tot[i] };
-          row.getCell(D0 + i).alignment = { horizontal: "center" };
-        }
-        const fill = solid(p.kind === 1 ? "FFD5DEE7" : "FFE9EDF1");
-        for (let c = 1; c < D0 + DAYS; c++) {
-          const cell = row.getCell(c);
-          cell.fill = fill;
-          cell.font = { bold: true, size: p.kind === 1 ? 11 : 10 };
-          cell.border = border;
-        }
-      }
-    });
-    if (!plan.length) ws.getCell(R0, 1).value = "Sin actividades dentro de este horizonte.";
-    let tr = lastRow + 2;
-    const totRow = tr;
-    const totals = dailyTotals(list);
-    const rowsTot = [{ label: "Personal total por d\xEDa", fn: (Ld) => `SUBTOTAL(9,${Ld}${R0}:${Ld}${lastRow})`, vals: totals, bold: true }];
-    for (const d of DISC) rowsTot.push({ label: "Personal \xB7 " + d.name, fn: (Ld) => `SUMIF($${L2["Disciplina"]}$${R0}:$${L2["Disciplina"]}$${lastRow},"${d.name}",${Ld}$${R0}:${Ld}$${lastRow})`, vals: dailyTotals(list.filter((a) => a.disciplina === d.name)), hex: d.hex });
-    for (const t of rowsTot) {
-      const row = ws.getRow(tr);
-      const lc = row.getCell(D0 - 1);
-      lc.value = t.label;
-      lc.alignment = { horizontal: "right" };
-      lc.font = { bold: true, color: t.hex ? { argb: "FF" + t.hex } : void 0 };
-      for (let i = 0; i < DAYS; i++) {
-        const c = row.getCell(D0 + i);
-        c.value = { formula: t.fn(colL(D0 + i)), result: t.vals[i] };
-        c.alignment = { horizontal: "center" };
-        c.border = border;
-        c.font = { bold: !!t.bold };
-        if (t.bold) c.fill = solid("FFD5DEE7");
-      }
-      tr++;
-    }
-    const sumLine = (rr, label, formula, result) => {
-      const row = ws.getRow(rr);
-      const c0 = row.getCell(D0 - 1);
-      c0.value = label;
-      c0.alignment = { horizontal: "right" };
-      c0.font = { bold: true };
-      const c = row.getCell(D0);
-      c.value = { formula, result };
-      c.font = { bold: true };
-    };
-    sumLine(tr + 1, "Pico de personal", `MAX(${DL0}${totRow}:${DLN}${totRow})`, Math.max(0, ...totals));
-    sumLine(tr + 2, "D\xEDas-hombre en el horizonte", `SUM(${DL0}${totRow}:${DLN}${totRow})`, totals.reduce((s, v) => s + v, 0));
-    sumLine(tr + 3, "HH plan en el horizonte", `${DL0}${tr + 2}*$B$4`, totals.reduce((s, v) => s + v, 0) * horasDia());
-    const gridRef = `${DL0}${R0}:${DLN}${lastRow}`;
-    ws.addConditionalFormatting({ ref: gridRef, rules: DISC.map((d, i) => ({
-      type: "expression",
-      priority: i + 1,
-      formulae: [`AND(ISNUMBER(${DL0}${R0}),$${L2["Disciplina"]}${R0}="${d.name}")`],
-      style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FF" + d.hex } }, font: { color: { argb: "FFFFFFFF" }, bold: true } }
-    })).concat([{ type: "expression", priority: 9, formulae: [`AND(${DL0}$${R_WORK}=0,$${L2["Disciplina"]}${R0}<>"")`], style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFF1F3F5" } } } }]) });
-    ws.addConditionalFormatting({ ref: `${DL0}${R_DATE}:${DLN}${R_DATE}`, rules: [{ type: "expression", priority: 10, formulae: [`${DL0}${R_DATE}=$B$3`], style: { fill: { type: "pattern", pattern: "solid", bgColor: { argb: "FFF0A04B" } } } }] });
-    ws.addConditionalFormatting({ ref: `${L2["Estado"]}${R0}:${L2["Estado"]}${lastRow}`, rules: [
-      { type: "containsText", operator: "containsText", text: "Atrasada", priority: 11, style: { font: { color: { argb: "FFB3261E" }, bold: true } } },
-      { type: "containsText", operator: "containsText", text: "Completada", priority: 12, style: { font: { color: { argb: "FF2E7D4F" }, bold: true } } },
-      { type: "containsText", operator: "containsText", text: "En curso", priority: 13, style: { font: { color: { argb: "FF1F5F8B" } } } }
-    ] });
-    ws.autoFilter = { from: { row: R_DATE, column: 1 }, to: { row: R_DATE, column: C.length } };
-    const table = (title, cols, rows, opt = {}) => {
-      const sh = wb.addWorksheet(title, { views: [{ state: "frozen", ySplit: 1, xSplit: opt.xSplit || 0 }] });
-      sh.columns = cols.map((c) => ({ header: c.h, width: c.w || 12 }));
-      sh.getRow(1).eachCell((c) => {
-        c.fill = headFill;
-        c.font = headFont;
-        c.border = border;
-        c.alignment = { wrapText: true, vertical: "middle" };
-      });
-      sh.getRow(1).height = 32;
-      rows.forEach((src, i) => {
-        const R = i + 2;
-        const row = sh.getRow(R);
-        cols.forEach((c, j) => {
-          const cell = row.getCell(j + 1);
-          const v = c.f ? { formula: c.f(R), result: c.v ? c.v(src) : void 0 } : c.v(src);
-          cell.value = v == null || v === "" ? null : v;
-          if (c.fmt) cell.numFmt = c.fmt;
-          if (c.wrap) cell.alignment = { wrapText: true, vertical: "top" };
-          if (c.input) cell.fill = inputFill;
-          cell.border = border;
-        });
-      });
-      sh.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
-      return sh;
-    };
-    const pred = (a) => a.pred && byUid(a.pred) ? byUid(a.pred).idTarea : null;
-    const regsSorted = [...state.regs].sort((a, b) => a.semana.localeCompare(b.semana) || a.idTarea.localeCompare(b.idTarea));
-    const actBy = (uid) => byUid(uid) || {};
-    const regOfW = (uid, semana) => state.regs.find((r2) => r2.uid === uid && r2.semana === semana);
-    const catCols = CATS.map(([c, n]) => ({ h: n, w: 9, v: (r2) => num((r2.personal || {})[c]) }));
-    table("Ejecuci\xF3n semanal", [
-      { h: "Semana (lunes)", w: 11, v: (r2) => xIso(r2.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (r2) => actBy(r2.uid).idTarea || r2.idTarea },
-      { h: "Descripci\xF3n", w: 32, v: (r2) => actBy(r2.uid).desc, wrap: true },
-      { h: "Disciplina", w: 20, v: (r2) => actBy(r2.uid).disciplina },
-      { h: "Tipo", w: 6, v: (r2) => actBy(r2.uid).tipo },
-      { h: "Sector/Zona", w: 11, v: (r2) => actBy(r2.uid).sector },
-      { h: "Comprometida", w: 11, v: (r2) => r2.comprometida },
-      { h: "Cumplida", w: 9, v: (r2) => r2.cumplida },
-      { h: "Causa no cumplimiento", w: 14, v: (r2) => r2.causaNC },
-      { h: "Turno", w: 9, v: (r2) => r2.turno },
-      { h: "D\xEDas trabajados", w: 9, v: (r2) => r2.dias },
-      { h: "Horas efectivas/d\xEDa", w: 9, v: (r2) => r2.horasDia },
-      ...catCols,
-      { h: "Personal total", w: 9, f: (R) => `SUM(M${R}:S${R})`, v: (r2) => r2.personalTotal },
-      { h: "HH trabajadas", w: 10, f: (R) => `T${R}*K${R}*L${R}`, v: (r2) => r2.hhTrab, fmt: "#,##0.0" },
-      { h: "HH extra", w: 8, v: (r2) => r2.hhExtra },
-      { h: "HH improductivas", w: 10, v: (r2) => r2.hhImprod },
-      { h: "HH perdidas", w: 9, f: (R) => `SUMIFS('P\xE9rdidas'!$G:$G,'P\xE9rdidas'!$A:$A,A${R},'P\xE9rdidas'!$B:$B,B${R})`, v: (r2) => regLostHH(r2), fmt: "#,##0.0" },
-      { h: "HH plan semana", w: 10, v: (r2) => r2.hhPlanSemana, fmt: "#,##0" },
-      { h: "% HH real vs plan", w: 9, f: (R) => `IF(Y${R}>0,U${R}/Y${R},"")`, v: (r2) => r2.hhPlanSemana ? r2.hhTrab / r2.hhPlanSemana : "", fmt: "0%" },
-      { h: "Metrado ejecutado", w: 10, v: (r2) => r2.metradoEjec },
-      { h: "Unidad", w: 7, v: (r2) => r2.unidad },
-      { h: "Productividad (HH/unidad)", w: 11, f: (R) => `IF(N(AA${R})>0,U${R}/AA${R},"")`, v: (r2) => num(r2.metradoEjec) > 0 ? r2.hhTrab / num(r2.metradoEjec) : "", fmt: "0.00" },
-      { h: "Avance acumulado", w: 9, v: (r2) => num(r2.avance) / 100, fmt: "0%" },
-      { h: "Inicio real", w: 11, v: (r2) => xIso(r2.inicioReal), fmt: DF },
-      { h: "Fin real", w: 11, v: (r2) => xIso(r2.finReal), fmt: DF },
-      { h: "Protocolos liberados", w: 9, v: (r2) => r2.protocolos },
-      { h: "No conformidades", w: 9, v: (r2) => r2.noConformidades },
-      { h: "Retrabajo (HH)", w: 9, v: (r2) => r2.retrabajoHH },
-      { h: "Incidentes", w: 9, v: (r2) => r2.incidentes },
-      { h: "Registrado por", w: 16, v: (r2) => r2.registradoPor },
-      { h: "Fuente", w: 12, v: (r2) => r2.fuente },
-      { h: "Fecha de registro", w: 16, v: (r2) => r2.fechaRegistro ? new Date(r2.fechaRegistro) : null, fmt: "dd/mm/yyyy hh:mm" },
-      { h: "Observaciones", w: 30, v: (r2) => r2.obs, wrap: true },
-      { h: "Metrado comprometido", w: 10, v: (r2) => r2.metradoComp }
-    ], regsSorted, { xSplit: 2 });
-    table("P\xE9rdidas", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
-      { h: "C\xF3digo de causa", w: 11, v: (x) => x.causa },
-      { h: "Causa", w: 34, v: (x) => name(CAUSAS, x.causa) },
-      { h: "Horas", w: 8, v: (x) => x.horas },
-      { h: "Personas", w: 9, v: (x) => x.personas },
-      { h: "HH perdidas", w: 10, f: (R) => `E${R}*F${R}`, v: (x) => num(x.horas) * num(x.personas) }
-    ], regsSorted.flatMap((r2) => (r2.perdidas || []).map((p) => ({ ...p, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
-    table("Equipos", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
-      { h: "Equipo", w: 22, v: (x) => x.equipo },
-      { h: "Capacidad", w: 10, v: (x) => x.capacidad },
-      { h: "Horas operativas", w: 10, v: (x) => x.horasOp },
-      { h: "Horas en espera", w: 10, v: (x) => x.horasEspera },
-      { h: "% espera", w: 9, f: (R) => `IF(E${R}+F${R}>0,F${R}/(E${R}+F${R}),"")`, v: (x) => num(x.horasOp) + num(x.horasEspera) > 0 ? num(x.horasEspera) / (num(x.horasOp) + num(x.horasEspera)) : "", fmt: "0%" }
-    ], regsSorted.flatMap((r2) => (r2.equipos || []).map((q) => ({ ...q, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
-    table("Restricciones", [
-      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
-      { h: "Tipo", w: 7, v: (x) => x.tipo },
-      { h: "Tipo (descripci\xF3n)", w: 20, v: (x) => name(RTIPOS, x.tipo) },
-      { h: "Descripci\xF3n", w: 40, v: (x) => x.desc, wrap: true },
-      { h: "Responsable", w: 18, v: (x) => x.responsable },
-      { h: "Fecha compromiso", w: 11, v: (x) => xIso(x.fechaCompromiso), fmt: DF },
-      { h: "Fecha liberaci\xF3n", w: 11, v: (x) => xIso(x.fechaLiberacion), fmt: DF, input: true },
-      { h: "Estado", w: 10, f: (R) => `IF(G${R}<>"","Liberada","Abierta")`, v: (x) => x.estado },
-      { h: "D\xEDas de atraso", w: 9, f: (R) => `IF(F${R}="","",MAX(0,IF(G${R}<>"",G${R},'Lookahead'!$B$3)-F${R}))`, v: (x) => x.fechaCompromiso ? Math.max(0, (x.fechaLiberacion ? toDay(x.fechaLiberacion) : today) - toDay(x.fechaCompromiso)) : "" }
-    ], [...state.restr].sort((a, b) => (a.fechaCompromiso || "").localeCompare(b.fechaCompromiso || "")));
-    table("Planes semanales", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
-      { h: "Descripci\xF3n", w: 34, v: (x) => actBy(x.uid).desc, wrap: true },
-      { h: "Metrado comprometido", w: 11, v: (x) => x.metradoComp },
-      { h: "Unidad", w: 7, v: (x) => x.unidad },
-      { h: "HH comprometidas", w: 10, v: (x) => x.hhComp, fmt: "#,##0" },
-      { h: "Congelado por", w: 16, v: (x) => x.congeladoPor },
-      { h: "Metrado ejecutado", w: 10, f: (R) => `SUMIFS(${ESH}!$AA:$AA,${ESH}!$A:$A,A${R},${ESH}!$B:$B,B${R})`, v: (x) => regOfW(x.uid, x.semana)?.metradoEjec ?? 0 },
-      { h: "\xBFCumplida?", w: 9, v: (x) => regOfW(x.uid, x.semana)?.cumplida || "" }
-    ], [...state.planes].sort((a, b) => a.semana.localeCompare(b.semana)).flatMap((p) => (p.compromisos || []).map((c) => ({ ...c, semana: p.semana, congeladoPor: p.congeladoPor }))));
-    const pac = pacSeries();
-    table("Indicadores", [
-      { h: "Semana (lunes)", w: 12, v: (p) => xDate(p.w), fmt: DF },
-      { h: "Compromisos", w: 12, v: (p) => p.comprometidas },
-      { h: "Cumplidos", w: 10, v: (p) => p.cumplidas },
-      { h: "PAC", w: 8, f: (R) => `IF(B${R}>0,C${R}/B${R},"")`, v: (p) => p.pac ?? "", fmt: "0%" },
-      { h: "Plan congelado", w: 10, v: (p) => p.congelado ? "S\xED" : "No" },
-      { h: "HH plan (programa)", w: 11, f: (R) => `SUMIFS(${ESH}!$Y:$Y,${ESH}!$A:$A,A${R})`, fmt: "#,##0" },
-      { h: "HH trabajadas", w: 10, f: (R) => `SUMIFS(${ESH}!$U:$U,${ESH}!$A:$A,A${R})`, fmt: "#,##0" },
-      { h: "HH real / plan", w: 10, f: (R) => `IF(F${R}>0,G${R}/F${R},"")`, fmt: "0%" },
-      { h: "HH perdidas", w: 10, f: (R) => `SUMIFS('P\xE9rdidas'!$G:$G,'P\xE9rdidas'!$A:$A,A${R})`, fmt: "#,##0.0" },
-      { h: "% HH perdidas", w: 10, f: (R) => `IF(G${R}+I${R}>0,I${R}/(G${R}+I${R}),"")`, fmt: "0%" }
-    ], pac);
-    const sc = sCurve();
-    table("Curva S", [
-      { h: "Semana", w: 8, v: (x) => "S" + (sc.weeks.indexOf(x) + 1) },
-      { h: "Lunes", w: 11, v: (x) => xDate(x.w), fmt: DF },
-      { h: "PV semana", w: 10, v: (x) => x.pv, fmt: "#,##0" },
-      { h: "PV acumulado", w: 11, v: (x) => x.pvCum, fmt: "#,##0" },
-      { h: "EV acumulado", w: 11, v: (x) => x.evCum, fmt: "#,##0" },
-      { h: "AC semana", w: 10, v: (x) => x.ac, fmt: "#,##0" },
-      { h: "AC acumulado", w: 11, v: (x) => x.acCum, fmt: "#,##0" },
-      { h: "SPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,D${R}>0),E${R}/D${R},"")`, fmt: "0.00" },
-      { h: "CPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,N(G${R})>0),E${R}/G${R},"")`, fmt: "0.00" },
-      { h: "% plan", w: 8, f: (R) => `IF(${sc.bac}>0,D${R}/${sc.bac},"")`, fmt: "0%" },
-      { h: "% ganado", w: 8, f: (R) => `IF(AND(${sc.bac}>0,N(E${R})>0),E${R}/${sc.bac},"")`, fmt: "0%" }
-    ], sc.weeks);
-    const lb = latestBaseline();
-    if (lb) table(`L\xEDnea base v${lb.version}`, [
-      { h: "Id Tarea", w: 17, v: (t) => t.idTarea },
-      { h: "Descripci\xF3n", w: 36, v: (t) => t.desc, wrap: true },
-      { h: "Disciplina", w: 20, v: (t) => t.disciplina },
-      { h: "Tipo", w: 6, v: (t) => t.tipo },
-      { h: "Sector/Zona", w: 11, v: (t) => t.sector },
-      { h: "Inicio LB", w: 11, v: (t) => xIso(t.inicio), fmt: DF },
-      { h: "Fin LB", w: 11, v: (t) => xIso(t.fin), fmt: DF },
-      { h: "Personal", w: 8, v: (t) => t.personal },
-      { h: "Metrado", w: 9, v: (t) => t.metrado },
-      { h: "Unidad", w: 7, v: (t) => t.unidad },
-      { h: "HH plan", w: 10, v: (t) => t.hhPlan, fmt: "#,##0" },
-      { h: "Inicio actual", w: 11, v: (t) => xIso(byUid(t.uid)?.inicio), fmt: DF },
-      { h: "Fin actual", w: 11, v: (t) => xIso(byUid(t.uid)?.fin), fmt: DF },
-      { h: "Desv\xEDo fin (d)", w: 9, f: (R) => `IF(M${R}="","",M${R}-G${R})`, v: (t) => byUid(t.uid) ? toDay(byUid(t.uid).fin) - toDay(t.fin) : "" },
-      { h: "HH real (acum.)", w: 10, f: (R) => `SUMIFS(${ESH}!$U:$U,${ESH}!$B:$B,A${R})`, v: (t) => hhRealOf(t.uid), fmt: "#,##0" }
-    ], lb.tareas);
-    table("Registro", [
-      { h: "Id Tarea", w: 17, v: (a) => a.idTarea },
-      { h: "Descripci\xF3n", w: 38, v: (a) => a.desc, wrap: true },
-      { h: "Disciplina", w: 20, v: (a) => a.disciplina },
-      { h: "Especialidad", w: 18, v: (a) => a.especialidad },
-      { h: "Tipo", w: 6, v: (a) => a.tipo },
-      { h: "Tipo (descripci\xF3n)", w: 24, v: (a) => tipoName(a.tipo) },
-      { h: "Sector/Zona", w: 11, v: (a) => a.sector },
-      { h: "Nombre del sector", w: 22, v: (a) => sectores()[a.sector] },
-      { h: "Nivel", w: 9, v: (a) => a.nivel },
-      { h: "Ejes", w: 10, v: (a) => a.ejes },
-      { h: "Plano de referencia", w: 18, v: (a) => a.plano },
-      { h: "Predecesora", w: 17, v: pred },
-      { h: "Responsable", w: 16, v: (a) => a.resp },
-      { h: "Personal", w: 8, v: (a) => num(a.personal) },
-      { h: "Metrado plan", w: 9, v: (a) => a.metrado },
-      { h: "Unidad", w: 7, v: (a) => a.unidad },
-      { h: "Peso (t)", w: 8, v: (a) => a.peso },
-      { h: "Altura izaje (m)", w: 9, v: (a) => a.altura },
-      { h: "Inicio", w: 11, v: (a) => xIso(a.inicio), fmt: DF },
-      { h: "Fin", w: 11, v: (a) => xIso(a.fin), fmt: DF },
-      { h: "Duraci\xF3n (d)", w: 9, f: (R) => `T${R}-S${R}+1`, v: durOf },
-      { h: "HH plan", w: 10, v: (a) => hhPlan(a), fmt: "#,##0" },
-      { h: "Observaciones", w: 30, v: (a) => a.obs, wrap: true }
-    ], sortActs(state.acts));
-    const wc = wb.addWorksheet("Cat\xE1logos");
-    const blocks = [
-      ["Tipos de actividad", ["Disciplina", "C\xF3digo", "Tipo"], DISC.flatMap((d) => d.tipos.map(([c, n]) => [d.name, c, n]))],
-      ["Causas", ["C\xF3digo", "Causa"], CAUSAS],
-      ["Tipos de restricci\xF3n", ["C\xF3digo", "Tipo"], RTIPOS],
-      ["Categor\xEDas de personal", ["C\xF3digo", "Categor\xEDa"], CATS],
-      ["Sectores", ["C\xF3digo", "Nombre"], Object.entries(sectores())]
-    ];
-    let cc = 1;
-    for (const [title, heads, rows] of blocks) {
-      wc.getCell(1, cc).value = title;
-      wc.getCell(1, cc).font = { bold: true };
-      heads.forEach((h, j) => {
-        const c = wc.getCell(2, cc + j);
-        c.value = h;
-        c.fill = headFill;
-        c.font = headFont;
-        wc.getColumn(cc + j).width = j === heads.length - 1 ? 30 : 12;
-      });
-      rows.forEach((row, i) => row.forEach((v, j) => wc.getCell(3 + i, cc + j).value = v));
-      cc += heads.length + 1;
-    }
-    const buf = await wb.xlsx.writeBuffer();
-    await saveFile(`Lookahead ${fileBase()} ${toIso(h0)}.xlsx`, new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-  }
-
   // js/io/csv-export.js
   function buildTables() {
     const pid = state.pid;
@@ -3877,7 +4005,7 @@ Factor ${fmtN(x.pf, 2)}` })),
     const has = !!state.pid;
     $("noProject").hidden = has || !state.projectsLoaded;
     showView(currentView());
-    const always = [$("exportBtn"), $("exportData")];
+    const always = [$("exportBtn"), $("exportData"), $("btnBackup")];
     for (const el of [$("projName"), $("startDate"), $("prevWeek"), $("nextWeek"), $("thisWeek"), $("workWeek"), $("hoursDay"), $("btnSaveAs"), ...always])
       el.disabled = !has || state.readOnly && !always.includes(el);
     $("btnNew").disabled = state.readOnly || state.mode === "connecting";

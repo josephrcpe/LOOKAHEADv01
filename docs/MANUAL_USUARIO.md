@@ -61,7 +61,16 @@ Arriba: **Nuevo**, **Guardar como…** (copia completa) y **Abrir** para cambiar
 - **Exportar a Excel**: reporte con fórmulas (lookahead, ejecución, pérdidas, equipos, restricciones, planes semanales, curva S, indicadores, línea base y catálogos).
 - **Exportar datos (CSV)**: ZIP con una tabla por archivo, lista para análisis y para juntar varios proyectos.
 
-## 5. Proyectos de ejemplo
+## 5. Respaldo en tu equipo
+
+- **Guardar respaldo** (arriba, junto a Abrir) descarga un archivo `Respaldo <proyecto> <fecha>.json` con todo el proyecto: actividades, líneas base, planes semanales, registros, cortes y restricciones. Guárdalo donde quieras (disco, USB, OneDrive). Conviene hacerlo después de cada corte semanal.
+- **Abrir → Restaurar respaldo…** lee ese archivo, muestra qué trae y te deja elegir:
+  - **Como proyecto nuevo**, con el nombre que indiques (no toca los demás proyectos).
+  - **Reemplazar** el proyecto del que salió, si existe aquí. Su contenido actual se borra y queda igual al respaldo; no se puede deshacer.
+- El mismo archivo sirve para pasar un proyecto de la página publicada a la copia sin conexión, o al revés.
+- El ZIP de **Exportar datos (CSV)** es para análisis; para restaurar usa el archivo de respaldo.
+
+## 6. Proyectos de ejemplo
 
 **Proy_Ejem_2M**: 21 actividades en dos sectores (ESP0240 Stock Pile, ESP0310 Edificio de Molienda), del 7 de setiembre al 1 de noviembre de 2026. Tiene registros hasta la semana 7 y la **semana 8 con plan congelado y sin registros**, para que pruebes el flujo del Excel de campo.
 

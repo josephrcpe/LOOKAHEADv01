@@ -139,6 +139,35 @@ export async function freeRestr(id) {
   await col("restricciones").doc(id).set({ ...r, estado: "Liberada", fechaLiberacion: toIso(todayDay()) });
 }
 
+// ---------- Respaldo (io/respaldo.js) ----------
+export const RESPALDO_COLS = SUBS.map(([name]) => name);
+// Contenido del proyecto abierto: documento del proyecto y cada subcolección como lista.
+export function datosProyecto() {
+  const colecciones = {};
+  for (const [name, key] of SUBS) colecciones[name] = state[key].map((d) => ({ ...d }));
+  return { pid: state.pid, proyecto: { ...P() }, colecciones };
+}
+// Escribe un respaldo en proyectos/{pid}. Con reemplazar, borra antes los documentos que el respaldo no trae.
+export async function escribirProyecto(pid, proyecto, colecciones, reemplazar) {
+  const dst = "proyectos/" + pid;
+  if (reemplazar) for (const [name] of SUBS) {
+    const keep = new Set((colecciones[name] || []).map((d, i) => idDe(name, d, i)));
+    const snap = await db.collection(dst + "/" + name).get();
+    for (const d of snap.docs) if (!keep.has(d.id)) await db.collection(dst + "/" + name).doc(d.id).delete();
+  }
+  const entries = [[dst, proyecto]];
+  for (const [name] of SUBS) (colecciones[name] || []).forEach((d, i) => entries.push([dst + "/" + name + "/" + idDe(name, d, i), d]));
+  if (db.setMany) await db.setMany(entries);
+  else for (let i = 0; i < entries.length; i++) {
+    await db.doc(entries[i][0]).set(entries[i][1]);
+    if (i % 10 === 9) toast(`Restaurando… ${i + 1} de ${entries.length}`);
+  }
+  if (!state.projects.some((p) => p.pid === pid)) state.projects = [{ pid, ...proyecto }, ...state.projects];
+  openProject(pid);
+}
+const idDe = (name, d, i) => { const f = SUBS.find(([n]) => n === name)[2]; return String(f(d) ?? "x" + i); };
+export const nuevoPid = makePid;
+
 // ---------- Proyectos de ejemplo (data/ejemplos.js) ----------
 // Escribe los ejemplos que falten; nunca sobrescribe un proyecto existente.
 export async function cargarEjemplos() {

@@ -70,6 +70,11 @@ Rutas alternan colección/documento. Todas cuelgan de `proyectos/{pid}`.
 - Hoja `_meta` (muy oculta): `version, pid, semana`. El importador rechaza otro proyecto u otra versión.
 - `readCampo` → `planCambios` (valida y arma registros, reprogramaciones y tareas no planificadas; estados `ok | aviso | error | omitida`) → vista previa → `aplicar` (escribe y guarda el corte). Las filas con error no se cargan.
 
+### Respaldo (`io/respaldo.js`)
+
+- Archivo `.json`: `{ formato: "lookahead-respaldo", version: 1, exportado, pid, proyecto, colecciones: { tareas, lineasBase, planesSemanales, registros, cortes, restricciones } }`. Las colecciones salen de `SUBS` en `data.js`, así que una subcolección nueva entra sola en el respaldo.
+- Restaurar: `validar` → resumen → `data.js → escribirProyecto(pid, proyecto, colecciones, reemplazar)`. Como nuevo usa un pid nuevo; reemplazar usa el pid del respaldo y borra antes los documentos que el respaldo no trae. Si cambias la forma del archivo, sube `VERSION` y acepta las anteriores.
+
 ## 7. Cómo extender
 
 - **Nuevo tipo de actividad, causa o categoría:** agrégalo en `config.js` (no renombres códigos existentes).

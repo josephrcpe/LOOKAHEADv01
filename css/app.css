@@ -110,6 +110,10 @@ form { display: grid; gap: 12px; }
 .field textarea { resize: vertical; min-height: 64px; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
 .field [aria-invalid="true"] { border-color: var(--danger); }
+.radio-opts { border: 0; padding: 0; margin: 10px 0 8px; display: grid; gap: 6px; }
+.radio-opts legend { font-size: .8rem; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.radio-opts label { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+.radio-opts input { accent-color: var(--focus); margin: 0; }
 .field .calc { font: 500 1rem var(--font-mono); padding: 7px 0; }
 #f-sector { text-transform: uppercase; font-family: var(--font-mono); }
 .err { color: var(--danger); font-size: .78rem; }

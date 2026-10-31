@@ -4,6 +4,7 @@ Herramienta web para planificar y controlar obras con un **lookahead de 3 semana
 
 - Página publicada: https://claude.ai/artifact/E5LB68eGP35DgYSpP8tcVV (datos compartidos en la nube).
 - Copia sin conexión: `dist/lookahead.html` (guarda en el navegador). Trae los proyectos de ejemplo incluidos y los carga sola la primera vez que se abre sin proyectos.
+- Respaldo físico: **Guardar respaldo** descarga el proyecto completo en un `.json`; **Abrir → Restaurar respaldo…** lo vuelve a cargar (en la nube o en la copia local).
 - Proyectos de ejemplo: **Proy_Ejem_2M** (en curso, con registros hasta la semana 7) y **Proy_Ejem_Concluido** (terminado, con todas las semanas registradas).
 
 ## Documentación
@@ -45,6 +46,7 @@ js/
   io/excel-campo.js   Excel de campo: exportar, leer, validar, vista previa y carga
   io/excel-report.js  Excel de reporte con fórmulas
   io/csv-export.js    ZIP de CSV por tabla + datos.json
+  io/respaldo.js      respaldo .json del proyecto: guardar y restaurar
 scripts/build.mjs     empaquetado a un solo HTML
 scripts/ejemplo_2m.py generador del proyecto de ejemplo
 scripts/ejemplos_js.py empaqueta ambos ejemplos en data/ejemplos.js
