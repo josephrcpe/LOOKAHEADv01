@@ -701,7 +701,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     return isFinite(n) ? n : 0;
   };
   var fmtN = (n, d = 0) => Number(n || 0).toLocaleString("es-PE", { maximumFractionDigits: d, minimumFractionDigits: 0 });
-  var fmtPct = (x, d = 0) => x == null || !isFinite(x) ? "\u2014" : fmtN(100 * x, d) + " %";
+  var fmtPct = (x2, d = 0) => x2 == null || !isFinite(x2) ? "\u2014" : fmtN(100 * x2, d) + " %";
   var newId = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   var reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   var CHEV = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1128,7 +1128,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   var saveTask = (t) => col("tareas").doc(t.uid).set(t);
   async function deleteTask(uid) {
     await col("tareas").doc(uid).delete();
-    for (const x of state.acts.filter((x2) => x2.pred === uid && x2.uid !== uid)) await saveTask({ ...x, pred: "" });
+    for (const x2 of state.acts.filter((x3) => x3.pred === uid && x3.uid !== uid)) await saveTask({ ...x2, pred: "" });
   }
   async function freezeBaseline(version, motivo) {
     const doc = {
@@ -1167,7 +1167,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     await col("restricciones").doc(r.id).set(r);
   }
   async function freeRestr(id) {
-    const r = state.restr.find((x) => x.id === id);
+    const r = state.restr.find((x2) => x2.id === id);
     if (!r) return;
     await col("restricciones").doc(id).set({ ...r, estado: "Liberada", fechaLiberacion: toIso(todayDay()) });
   }
@@ -1661,9 +1661,9 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     $("gDisc").innerHTML = discOptions($("gDisc").value, "Todas las disciplinas");
     const gs = $("gSector").value, gr = $("gResp").value;
     const secs = [...new Set(state.acts.map((a) => a.sector).filter(Boolean))].sort();
-    $("gSector").innerHTML = '<option value="">Todos los sectores</option>' + secs.map((x) => `<option value="${esc(x)}"${x === gs ? " selected" : ""}>${esc(sectorLabel(x))}</option>`).join("");
+    $("gSector").innerHTML = '<option value="">Todos los sectores</option>' + secs.map((x2) => `<option value="${esc(x2)}"${x2 === gs ? " selected" : ""}>${esc(sectorLabel(x2))}</option>`).join("");
     const resps = [...new Set(state.acts.map((a) => a.resp).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
-    $("gResp").innerHTML = '<option value="">Todos los responsables</option>' + resps.map((x) => `<option value="${esc(x)}"${x === gr ? " selected" : ""}>${esc(x)}</option>`).join("");
+    $("gResp").innerHTML = '<option value="">Todos los responsables</option>' + resps.map((x2) => `<option value="${esc(x2)}"${x2 === gr ? " selected" : ""}>${esc(x2)}</option>`).join("");
     $("gGroup").value = ui.group;
     const h0 = startDay(), t = todayDay(), h1 = h0 + DAYS2 - 1;
     const all = state.acts.filter(inHorizon);
@@ -1816,7 +1816,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   }
   function kpisAtCut() {
     const s = sCurve();
-    const last = s.weeks.filter((x) => x.evCum != null).pop();
+    const last = s.weeks.filter((x2) => x2.evCum != null).pop();
     if (!last) return { bac: s.bac, cut: null };
     const pv = last.pvCum, ev = last.evCum, ac = last.acCum;
     const spi = pv ? ev / pv : null, cpi = ac ? ev / ac : null;
@@ -1854,12 +1854,12 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   function paretoPerdidas() {
     const m = /* @__PURE__ */ new Map();
     for (const r of state.regs) for (const p of r.perdidas || []) if (p.causa) m.set(p.causa, (m.get(p.causa) || 0) + num(p.horas) * num(p.personas));
-    const rows = [...m.entries()].map(([causa, hh]) => ({ causa, hh })).filter((x) => x.hh > 0).sort((a, b) => b.hh - a.hh);
-    const total = rows.reduce((s, x) => s + x.hh, 0);
+    const rows = [...m.entries()].map(([causa, hh]) => ({ causa, hh })).filter((x2) => x2.hh > 0).sort((a, b) => b.hh - a.hh);
+    const total = rows.reduce((s, x2) => s + x2.hh, 0);
     let acc = 0;
-    for (const x of rows) {
-      acc += x.hh;
-      x.acumPct = total ? acc / total : 0;
+    for (const x2 of rows) {
+      acc += x2.hh;
+      x2.acumPct = total ? acc / total : 0;
     }
     return { rows, total };
   }
@@ -1873,13 +1873,13 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       const ac = state.regs.filter((r) => r.uid === t.uid).reduce((s, r) => s + regHH(r), 0);
       const ev = avanceAt(t.uid, cutIso, t.metrado) / 100 * num(t.hhPlan);
       if (!ac && !ev) continue;
-      const x = m.get(t.tipo) || { tipo: t.tipo, disciplina: t.disciplina, ac: 0, ev: 0, n: 0 };
-      x.ac += ac;
-      x.ev += ev;
-      x.n++;
-      m.set(t.tipo, x);
+      const x2 = m.get(t.tipo) || { tipo: t.tipo, disciplina: t.disciplina, ac: 0, ev: 0, n: 0 };
+      x2.ac += ac;
+      x2.ev += ev;
+      x2.n++;
+      m.set(t.tipo, x2);
     }
-    return [...m.values()].filter((x) => x.ev > 0).map((x) => ({ ...x, pf: x.ac / x.ev }));
+    return [...m.values()].filter((x2) => x2.ev > 0).map((x2) => ({ ...x2, pf: x2.ac / x2.ev }));
   }
   function asBuiltSegments(uid, jornada) {
     const regs = state.regs.filter((r) => r.uid === uid).sort((a, b) => a.semana.localeCompare(b.semana));
@@ -1909,6 +1909,104 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       d++;
     while (!isWork(d, jornada));
     return d;
+  }
+
+  // js/io/excel-charts.js
+  var NS_C = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+  var NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+  var NS_R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  var REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/";
+  var CT_CHART = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml";
+  var CT_DRAW = "application/vnd.openxmlformats-officedocument.drawing+xml";
+  var INK = "52514E";
+  var GRID = "E3E6EA";
+  var x = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  var txt = (sz, color = INK, b = 0) => `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="${sz}" b="${b}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill></a:defRPr></a:pPr><a:endParaRPr lang="es-PE"/></a:p></c:txPr>`;
+  function strRef(ref, vals) {
+    return `<c:strRef><c:f>${x(ref)}</c:f><c:strCache><c:ptCount val="${vals.length}"/>${vals.map((v, i) => `<c:pt idx="${i}"><c:v>${x(v)}</c:v></c:pt>`).join("")}</c:strCache></c:strRef>`;
+  }
+  function numRef(ref, vals, fmt2) {
+    const pts = vals.map((v, i) => v == null || !isFinite(v) ? "" : `<c:pt idx="${i}"><c:v>${+v}</c:v></c:pt>`).join("");
+    return `<c:numRef><c:f>${x(ref)}</c:f><c:numCache><c:formatCode>${x(fmt2)}</c:formatCode><c:ptCount val="${vals.length}"/>${pts}</c:numCache></c:numRef>`;
+  }
+  var dLbls = (fmt2) => `<c:dLbls><c:numFmt formatCode="${x(fmt2)}" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${txt(800)}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>`;
+  function serXml(s, i, spec) {
+    const head = `<c:idx val="${i}"/><c:order val="${i}"/><c:tx><c:v>${x(s.name)}</c:v></c:tx>`;
+    const data = `<c:cat>${strRef(spec.cats.ref, spec.cats.vals)}</c:cat><c:val>${numRef(s.ref, s.vals, spec.yFmt || "General")}</c:val>`;
+    if (s.kind === "line") {
+      const ln = `<a:ln w="22225" cap="rnd"><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill>${s.dash ? '<a:prstDash val="dash"/>' : ""}<a:round/></a:ln>`;
+      const marker = s.dash ? '<c:marker><c:symbol val="none"/></c:marker>' : `<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:marker>`;
+      return `<c:ser>${head}<c:spPr>${ln}</c:spPr>${marker}${data}<c:smooth val="0"/></c:ser>`;
+    }
+    return `<c:ser>${head}<c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr><c:invertIfNegative val="0"/>${spec.labels ? dLbls(spec.labelFmt || spec.yFmt || "General") : ""}${data}</c:ser>`;
+  }
+  function chartXml(spec) {
+    const bars = spec.series.map((s, i) => [s, i]).filter(([s]) => s.kind !== "line");
+    const lines = spec.series.map((s, i) => [s, i]).filter(([s]) => s.kind === "line");
+    const hz = !!spec.horizontal;
+    const axIds = '<c:axId val="500001"/><c:axId val="500002"/>';
+    const barXml = bars.length ? `<c:barChart><c:barDir val="${hz ? "bar" : "col"}"/><c:grouping val="clustered"/><c:varyColors val="0"/>${bars.map(([s, i]) => serXml(s, i, spec)).join("")}<c:gapWidth val="${bars.length > 1 ? 60 : 50}"/>${bars.length > 1 ? '<c:overlap val="-8"/>' : ""}${axIds}</c:barChart>` : "";
+    const lineXml = lines.length ? `<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${lines.map(([s, i]) => serXml(s, i, spec)).join("")}<c:marker val="1"/>${axIds}</c:lineChart>` : "";
+    const axLine = `<c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="BFC5CC"/></a:solidFill></a:ln></c:spPr>`;
+    const catAx = `<c:catAx><c:axId val="500001"/><c:scaling><c:orientation val="${hz ? "maxMin" : "minMax"}"/></c:scaling><c:delete val="0"/><c:axPos val="${hz ? "l" : "b"}"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${axLine}${txt(800)}<c:crossAx val="500002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>`;
+    const valAx = `<c:valAx><c:axId val="500002"/><c:scaling><c:orientation val="minMax"/>${spec.yMax != null ? `<c:max val="${spec.yMax}"/>` : ""}<c:min val="0"/></c:scaling><c:delete val="0"/><c:axPos val="${hz ? "b" : "l"}"/><c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="${GRID}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines><c:numFmt formatCode="${x(spec.yFmt || "General")}" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:spPr><a:ln><a:noFill/></a:ln></c:spPr>${txt(800)}<c:crossAx val="500001"/><c:crosses val="${hz ? "max" : "autoZero"}"/><c:crossBetween val="between"/></c:valAx>`;
+    const legend2 = spec.legend ? `<c:legend><c:legendPos val="t"/><c:overlay val="0"/>${txt(900)}</c:legend>` : "";
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="${NS_C}" xmlns:a="${NS_A}" xmlns:r="${NS_R}"><c:roundedCorners val="0"/><c:chart>
+<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="1200" b="1"/></a:pPr><a:r><a:rPr lang="es-PE" sz="1200" b="1"><a:solidFill><a:srgbClr val="1F2328"/></a:solidFill></a:rPr><a:t>${x(spec.title)}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>${barXml}${lineXml}${catAx}${valAx}</c:plotArea>${legend2}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>
+<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="${GRID}"/></a:solidFill></a:ln></c:spPr></c:chartSpace>`;
+  }
+  function anchor(spec, i) {
+    const [c0, r0, c1, r1] = spec.at;
+    const cell = (c, r) => `<xdr:col>${c}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${r}</xdr:row><xdr:rowOff>0</xdr:rowOff>`;
+    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${cell(c0, r0)}</xdr:from><xdr:to>${cell(c1, r1)}</xdr:to>
+<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${i + 2}" name="${x(spec.title)}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
+<a:graphic><a:graphicData uri="${NS_C}"><c:chart xmlns:c="${NS_C}" r:id="rId${i + 1}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`;
+  }
+  var rels = (items) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.join("")}</Relationships>`;
+  var nextFree = (zip, pre, ext) => {
+    let n = 1;
+    while (zip.file(`${pre}${n}${ext}`)) n++;
+    return n;
+  };
+  async function insertarGraficos(buf, sheetName, specs) {
+    if (!specs.length || !window.JSZip) return buf;
+    const zip = await JSZip.loadAsync(buf);
+    const wbXml = await zip.file("xl/workbook.xml").async("string");
+    const wbRels = await zip.file("xl/_rels/workbook.xml.rels").async("string");
+    const sheetTag = [...wbXml.matchAll(/<sheet\b[^>]*>/g)].map((m2) => m2[0]).find((t) => t.includes(`name="${x(sheetName)}"`));
+    const rid = sheetTag && /r:id="([^"]+)"/.exec(sheetTag)[1];
+    const relTag = rid && [...wbRels.matchAll(/<Relationship\b[^>]*>/g)].map((m2) => m2[0]).find((t) => t.includes(`Id="${rid}"`));
+    if (!relTag) return buf;
+    const target = /Target="([^"]+)"/.exec(relTag)[1].replace(/^\/?(xl\/)?/, "");
+    const sheetPath = "xl/" + target, sheetFile = sheetPath.split("/").pop();
+    const sheetRelsPath = `xl/worksheets/_rels/${sheetFile}.rels`;
+    const dn = nextFree(zip, "xl/drawings/drawing", ".xml");
+    let cn = nextFree(zip, "xl/charts/chart", ".xml");
+    const chartRels = [], overrides = [`<Override PartName="/xl/drawings/drawing${dn}.xml" ContentType="${CT_DRAW}"/>`];
+    specs.forEach((spec, i) => {
+      zip.file(`xl/charts/chart${cn}.xml`, chartXml(spec));
+      chartRels.push(`<Relationship Id="rId${i + 1}" Type="${REL}chart" Target="../charts/chart${cn}.xml"/>`);
+      overrides.push(`<Override PartName="/xl/charts/chart${cn}.xml" ContentType="${CT_CHART}"/>`);
+      cn++;
+    });
+    zip.file(`xl/drawings/drawing${dn}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="${NS_A}" xmlns:r="${NS_R}">${specs.map(anchor).join("")}</xdr:wsDr>`);
+    zip.file(`xl/drawings/_rels/drawing${dn}.xml.rels`, rels(chartRels));
+    const drawRid = "rIdGraficos1";
+    const sr = zip.file(sheetRelsPath) ? await zip.file(sheetRelsPath).async("string") : rels([]);
+    zip.file(sheetRelsPath, sr.replace("</Relationships>", `<Relationship Id="${drawRid}" Type="${REL}drawing" Target="../drawings/drawing${dn}.xml"/></Relationships>`));
+    let sx = await zip.file(sheetPath).async("string");
+    if (!/<worksheet\b[^>]*xmlns:r=/.test(sx)) sx = sx.replace("<worksheet ", `<worksheet xmlns:r="${NS_R}" `);
+    const tag = `<drawing r:id="${drawRid}"/>`;
+    const m = /<(legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b/.exec(sx);
+    sx = m ? sx.slice(0, m.index) + tag + sx.slice(m.index) : sx.replace("</worksheet>", tag + "</worksheet>");
+    zip.file(sheetPath, sx);
+    const ct = await zip.file("[Content_Types].xml").async("string");
+    zip.file("[Content_Types].xml", ct.replace("</Types>", overrides.join("") + "</Types>"));
+    return zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });
   }
 
   // js/io/excel-report.js
@@ -2023,7 +2121,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       while (j < plan.length && plan[j].kind > lvl) j++;
       return plan[j - 1].row;
     };
-    const hhRealOf = (uid) => state.regs.filter((x) => x.uid === uid).reduce((s, x) => s + num(x.hhTrab), 0);
+    const hhRealOf = (uid) => state.regs.filter((x2) => x2.uid === uid).reduce((s, x2) => s + num(x2.hhTrab), 0);
     plan.forEach((p, idx2) => {
       const row = ws.getRow(p.row);
       const R = p.row;
@@ -2154,6 +2252,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       { type: "containsText", operator: "containsText", text: "En curso", priority: 13, style: { font: { color: { argb: "FF1F5F8B" } } } }
     ] });
     ws.autoFilter = { from: { row: R_DATE, column: 1 }, to: { row: R_DATE, column: C.length } };
+    const wg = wb.addWorksheet("Gr\xE1ficos");
     const table = (title, cols, rows, opt = {}) => {
       const sh = wb.addWorksheet(title, { views: [{ state: "frozen", ySplit: 1, xSplit: opt.xSplit || 0 }] });
       sh.columns = cols.map((c) => ({ header: c.h, width: c.w || 12 }));
@@ -2223,44 +2322,44 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       { h: "Metrado comprometido", w: 10, v: (r2) => r2.metradoComp }
     ], regsSorted, { xSplit: 2 });
     table("P\xE9rdidas", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
-      { h: "C\xF3digo de causa", w: 11, v: (x) => x.causa },
-      { h: "Causa", w: 34, v: (x) => name(CAUSAS, x.causa) },
-      { h: "Horas", w: 8, v: (x) => x.horas },
-      { h: "Personas", w: 9, v: (x) => x.personas },
-      { h: "HH perdidas", w: 10, f: (R) => `E${R}*F${R}`, v: (x) => num(x.horas) * num(x.personas) }
+      { h: "Semana (lunes)", w: 11, v: (x2) => xIso(x2.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x2) => x2.idTarea },
+      { h: "C\xF3digo de causa", w: 11, v: (x2) => x2.causa },
+      { h: "Causa", w: 34, v: (x2) => name(CAUSAS, x2.causa) },
+      { h: "Horas", w: 8, v: (x2) => x2.horas },
+      { h: "Personas", w: 9, v: (x2) => x2.personas },
+      { h: "HH perdidas", w: 10, f: (R) => `E${R}*F${R}`, v: (x2) => num(x2.horas) * num(x2.personas) }
     ], regsSorted.flatMap((r2) => (r2.perdidas || []).map((p) => ({ ...p, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
     table("Equipos", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => x.idTarea },
-      { h: "Equipo", w: 22, v: (x) => x.equipo },
-      { h: "Capacidad", w: 10, v: (x) => x.capacidad },
-      { h: "Horas operativas", w: 10, v: (x) => x.horasOp },
-      { h: "Horas en espera", w: 10, v: (x) => x.horasEspera },
-      { h: "% espera", w: 9, f: (R) => `IF(E${R}+F${R}>0,F${R}/(E${R}+F${R}),"")`, v: (x) => num(x.horasOp) + num(x.horasEspera) > 0 ? num(x.horasEspera) / (num(x.horasOp) + num(x.horasEspera)) : "", fmt: "0%" }
+      { h: "Semana (lunes)", w: 11, v: (x2) => xIso(x2.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x2) => x2.idTarea },
+      { h: "Equipo", w: 22, v: (x2) => x2.equipo },
+      { h: "Capacidad", w: 10, v: (x2) => x2.capacidad },
+      { h: "Horas operativas", w: 10, v: (x2) => x2.horasOp },
+      { h: "Horas en espera", w: 10, v: (x2) => x2.horasEspera },
+      { h: "% espera", w: 9, f: (R) => `IF(E${R}+F${R}>0,F${R}/(E${R}+F${R}),"")`, v: (x2) => num(x2.horasOp) + num(x2.horasEspera) > 0 ? num(x2.horasEspera) / (num(x2.horasOp) + num(x2.horasEspera)) : "", fmt: "0%" }
     ], regsSorted.flatMap((r2) => (r2.equipos || []).map((q) => ({ ...q, semana: r2.semana, idTarea: actBy(r2.uid).idTarea || r2.idTarea }))));
     table("Restricciones", [
-      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
-      { h: "Tipo", w: 7, v: (x) => x.tipo },
-      { h: "Tipo (descripci\xF3n)", w: 20, v: (x) => name(RTIPOS, x.tipo) },
-      { h: "Descripci\xF3n", w: 40, v: (x) => x.desc, wrap: true },
-      { h: "Responsable", w: 18, v: (x) => x.responsable },
-      { h: "Fecha compromiso", w: 11, v: (x) => xIso(x.fechaCompromiso), fmt: DF },
-      { h: "Fecha liberaci\xF3n", w: 11, v: (x) => xIso(x.fechaLiberacion), fmt: DF, input: true },
-      { h: "Estado", w: 10, f: (R) => `IF(G${R}<>"","Liberada","Abierta")`, v: (x) => x.estado },
-      { h: "D\xEDas de atraso", w: 9, f: (R) => `IF(F${R}="","",MAX(0,IF(G${R}<>"",G${R},'Lookahead'!$B$3)-F${R}))`, v: (x) => x.fechaCompromiso ? Math.max(0, (x.fechaLiberacion ? toDay(x.fechaLiberacion) : today) - toDay(x.fechaCompromiso)) : "" }
+      { h: "Id Tarea", w: 17, v: (x2) => actBy(x2.uid).idTarea || x2.idTarea },
+      { h: "Tipo", w: 7, v: (x2) => x2.tipo },
+      { h: "Tipo (descripci\xF3n)", w: 20, v: (x2) => name(RTIPOS, x2.tipo) },
+      { h: "Descripci\xF3n", w: 40, v: (x2) => x2.desc, wrap: true },
+      { h: "Responsable", w: 18, v: (x2) => x2.responsable },
+      { h: "Fecha compromiso", w: 11, v: (x2) => xIso(x2.fechaCompromiso), fmt: DF },
+      { h: "Fecha liberaci\xF3n", w: 11, v: (x2) => xIso(x2.fechaLiberacion), fmt: DF, input: true },
+      { h: "Estado", w: 10, f: (R) => `IF(G${R}<>"","Liberada","Abierta")`, v: (x2) => x2.estado },
+      { h: "D\xEDas de atraso", w: 9, f: (R) => `IF(F${R}="","",MAX(0,IF(G${R}<>"",G${R},'Lookahead'!$B$3)-F${R}))`, v: (x2) => x2.fechaCompromiso ? Math.max(0, (x2.fechaLiberacion ? toDay(x2.fechaLiberacion) : today) - toDay(x2.fechaCompromiso)) : "" }
     ], [...state.restr].sort((a, b) => (a.fechaCompromiso || "").localeCompare(b.fechaCompromiso || "")));
     table("Planes semanales", [
-      { h: "Semana (lunes)", w: 11, v: (x) => xIso(x.semana), fmt: DF },
-      { h: "Id Tarea", w: 17, v: (x) => actBy(x.uid).idTarea || x.idTarea },
-      { h: "Descripci\xF3n", w: 34, v: (x) => actBy(x.uid).desc, wrap: true },
-      { h: "Metrado comprometido", w: 11, v: (x) => x.metradoComp },
-      { h: "Unidad", w: 7, v: (x) => x.unidad },
-      { h: "HH comprometidas", w: 10, v: (x) => x.hhComp, fmt: "#,##0" },
-      { h: "Congelado por", w: 16, v: (x) => x.congeladoPor },
-      { h: "Metrado ejecutado", w: 10, f: (R) => `SUMIFS(${ESH}!$AA:$AA,${ESH}!$A:$A,A${R},${ESH}!$B:$B,B${R})`, v: (x) => regOfW(x.uid, x.semana)?.metradoEjec ?? 0 },
-      { h: "\xBFCumplida?", w: 9, v: (x) => regOfW(x.uid, x.semana)?.cumplida || "" }
+      { h: "Semana (lunes)", w: 11, v: (x2) => xIso(x2.semana), fmt: DF },
+      { h: "Id Tarea", w: 17, v: (x2) => actBy(x2.uid).idTarea || x2.idTarea },
+      { h: "Descripci\xF3n", w: 34, v: (x2) => actBy(x2.uid).desc, wrap: true },
+      { h: "Metrado comprometido", w: 11, v: (x2) => x2.metradoComp },
+      { h: "Unidad", w: 7, v: (x2) => x2.unidad },
+      { h: "HH comprometidas", w: 10, v: (x2) => x2.hhComp, fmt: "#,##0" },
+      { h: "Congelado por", w: 16, v: (x2) => x2.congeladoPor },
+      { h: "Metrado ejecutado", w: 10, f: (R) => `SUMIFS(${ESH}!$AA:$AA,${ESH}!$A:$A,A${R},${ESH}!$B:$B,B${R})`, v: (x2) => regOfW(x2.uid, x2.semana)?.metradoEjec ?? 0 },
+      { h: "\xBFCumplida?", w: 9, v: (x2) => regOfW(x2.uid, x2.semana)?.cumplida || "" }
     ], [...state.planes].sort((a, b) => a.semana.localeCompare(b.semana)).flatMap((p) => (p.compromisos || []).map((c) => ({ ...c, semana: p.semana, congeladoPor: p.congeladoPor }))));
     const pac = pacSeries();
     table("Indicadores", [
@@ -2277,13 +2376,13 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     ], pac);
     const sc = sCurve();
     table("Curva S", [
-      { h: "Semana", w: 8, v: (x) => "S" + (sc.weeks.indexOf(x) + 1) },
-      { h: "Lunes", w: 11, v: (x) => xDate(x.w), fmt: DF },
-      { h: "PV semana", w: 10, v: (x) => x.pv, fmt: "#,##0" },
-      { h: "PV acumulado", w: 11, v: (x) => x.pvCum, fmt: "#,##0" },
-      { h: "EV acumulado", w: 11, v: (x) => x.evCum, fmt: "#,##0" },
-      { h: "AC semana", w: 10, v: (x) => x.ac, fmt: "#,##0" },
-      { h: "AC acumulado", w: 11, v: (x) => x.acCum, fmt: "#,##0" },
+      { h: "Semana", w: 8, v: (x2) => "S" + (sc.weeks.indexOf(x2) + 1) },
+      { h: "Lunes", w: 11, v: (x2) => xDate(x2.w), fmt: DF },
+      { h: "PV semana", w: 10, v: (x2) => x2.pv, fmt: "#,##0" },
+      { h: "PV acumulado", w: 11, v: (x2) => x2.pvCum, fmt: "#,##0" },
+      { h: "EV acumulado", w: 11, v: (x2) => x2.evCum, fmt: "#,##0" },
+      { h: "AC semana", w: 10, v: (x2) => x2.ac, fmt: "#,##0" },
+      { h: "AC acumulado", w: 11, v: (x2) => x2.acCum, fmt: "#,##0" },
       { h: "SPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,D${R}>0),E${R}/D${R},"")`, fmt: "0.00" },
       { h: "CPI", w: 7, f: (R) => `IF(AND(N(E${R})>0,N(G${R})>0),E${R}/G${R},"")`, fmt: "0.00" },
       { h: "% plan", w: 8, f: (R) => `IF(${sc.bac}>0,D${R}/${sc.bac},"")`, fmt: "0%" },
@@ -2354,8 +2453,129 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       rows.forEach((row, i) => row.forEach((v, j) => wc.getCell(3 + i, cc + j).value = v));
       cc += heads.length + 1;
     }
-    const buf = await wb.xlsx.writeBuffer();
+    const charts = hojaGraficos(wg, sc, { headFill, headFont, border });
+    let buf = await wb.xlsx.writeBuffer();
+    try {
+      buf = await insertarGraficos(buf, "Gr\xE1ficos", charts);
+    } catch (e) {
+      console.error(e);
+      toast("No se pudieron agregar los gr\xE1ficos; el Excel se descarga sin ellos.");
+    }
     await saveFile(`Lookahead ${fileBase()} ${toIso(h0)}.xlsx`, new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  }
+  var COLOR = { s1: "2A78D6", s2: "EB6834", s3: "1BAF7A", meta: "8A9099" };
+  function hojaGraficos(ws, sc, st) {
+    ws.getCell("A1").value = "Gr\xE1ficos del proyecto";
+    ws.getCell("A1").font = { bold: true, size: 14 };
+    ws.getCell("A2").value = "Gr\xE1ficos de Excel: puedes editarlos, cambiar colores o copiarlos a tu informe. Los datos de la curva S est\xE1n en la hoja Curva S; los dem\xE1s, en las tablas de la derecha.";
+    ws.getCell("A2").font = { color: { argb: "FF52514E" }, size: 9 };
+    const weeks = weekRange();
+    const label = (w) => {
+      const i = weeks.indexOf(w);
+      return i >= 0 ? `S${i + 1}` : fmt(w);
+    };
+    const Q = (c1, r1, c2 = c1, r2 = r1) => `'Gr\xE1ficos'!$${c1}$${r1}:$${c2}$${r2}`;
+    const specs = [];
+    const notes = [];
+    const block = (c0, title, heads, rows, fmts) => {
+      ws.getCell(3, c0).value = title;
+      ws.getCell(3, c0).font = { bold: true };
+      heads.forEach((h, j) => {
+        const c = ws.getCell(4, c0 + j);
+        c.value = h;
+        c.fill = st.headFill;
+        c.font = st.headFont;
+        c.border = st.border;
+        ws.getColumn(c0 + j).width = j ? 11 : 22;
+      });
+      rows.forEach((r, i) => r.forEach((v, j) => {
+        const c = ws.getCell(5 + i, c0 + j);
+        c.value = v == null ? null : v;
+        c.border = st.border;
+        if (fmts[j]) c.numFmt = fmts[j];
+      }));
+      return 4 + rows.length;
+    };
+    for (let c = 1; c <= 19; c++) ws.getColumn(c).width = 9.5;
+    ws.pageSetup = { orientation: "portrait", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 1, printArea: "A1:T70" };
+    if (sc.weeks.length) {
+      const n = sc.weeks.length + 1;
+      const ser = (name2, col2, key, color) => ({ name: name2, ref: `'Curva S'!$${col2}$2:$${col2}$${n}`, vals: sc.weeks.map((w) => w[key]), color, kind: "line" });
+      specs.push({
+        title: "Curva S en HH (acumulado)",
+        at: [0, 3, 19, 23],
+        legend: true,
+        yFmt: "#,##0",
+        cats: { ref: `'Curva S'!$A$2:$A$${n}`, vals: sc.weeks.map((w, i) => "S" + (i + 1)) },
+        series: [ser("PV \xB7 planificado", "D", "pvCum", COLOR.s1), ser("EV \xB7 ganado", "E", "evCum", COLOR.s2), ser("AC \xB7 real", "G", "acCum", COLOR.s3)]
+      });
+    }
+    const pac = pacSeries();
+    if (pac.length) {
+      const end = block(22, "PAC semanal", ["Semana", "PAC", "Meta"], pac.map((p) => [label(p.w), p.pac ?? null, PAC_META]), [null, "0%", "0%"]);
+      specs.push({
+        title: "PAC semanal",
+        at: [0, 25, 9, 44],
+        legend: true,
+        yFmt: "0%",
+        yMax: 1,
+        labels: true,
+        cats: { ref: Q("V", 5, "V", end), vals: pac.map((p) => label(p.w)) },
+        series: [
+          { name: "PAC", ref: Q("W", 5, "W", end), vals: pac.map((p) => p.pac ?? null), color: COLOR.s1, kind: "bar" },
+          { name: `Meta ${Math.round(PAC_META * 100)} %`, ref: Q("X", 5, "X", end), vals: pac.map(() => PAC_META), color: COLOR.meta, kind: "line", dash: true }
+        ]
+      });
+    } else notes.push("PAC: congela planes semanales y carga cortes para verlo.");
+    const pers = personalSemanal();
+    if (pers.length) {
+      const end = block(26, "Personal por semana (personas/d\xEDa)", ["Semana", "Plan (LB)", "Real"], pers.map((p) => [label(p.w), +p.plan.toFixed(1), p.real == null ? null : +p.real.toFixed(1)]), [null, "0.0", "0.0"]);
+      specs.push({
+        title: "Personal por semana: plan vs real",
+        at: [10, 25, 19, 44],
+        legend: true,
+        yFmt: "0",
+        cats: { ref: Q("Z", 5, "Z", end), vals: pers.map((p) => label(p.w)) },
+        series: [
+          { name: "Plan (LB)", ref: Q("AA", 5, "AA", end), vals: pers.map((p) => p.plan), color: COLOR.s1, kind: "bar" },
+          { name: "Real", ref: Q("AB", 5, "AB", end), vals: pers.map((p) => p.real), color: COLOR.s2, kind: "bar" }
+        ]
+      });
+    }
+    const par = paretoPerdidas();
+    if (par.rows.length) {
+      const rows = par.rows.map((r) => [name(CAUSAS, r.causa), +r.hh.toFixed(1), r.acumPct]);
+      const end = block(30, "HH perdidas por causa (Pareto)", ["Causa", "HH perdidas", "% acumulado"], rows, [null, "#,##0.0", "0%"]);
+      specs.push({
+        title: "HH perdidas por causa",
+        at: [0, 46, 9, 66],
+        horizontal: true,
+        labels: true,
+        yFmt: "#,##0",
+        cats: { ref: Q("AD", 5, "AD", end), vals: rows.map((r) => r[0]) },
+        series: [{ name: "HH perdidas", ref: Q("AE", 5, "AE", end), vals: rows.map((r) => r[1]), color: COLOR.s1, kind: "bar" }]
+      });
+    } else notes.push("P\xE9rdidas: sin p\xE9rdidas registradas.");
+    const pf = productividadPorTipo().sort((a, b) => b.pf - a.pf);
+    if (pf.length) {
+      const rows = pf.map((p) => [`${p.tipo} \xB7 ${tipoName(p.tipo)}`, +p.pf.toFixed(2)]);
+      const end = block(34, "Factor de productividad (HH reales \xF7 HH ganadas)", ["Tipo", "Factor"], rows, [null, "0.00"]);
+      specs.push({
+        title: "Factor de productividad por tipo (1,0 = plan)",
+        at: [10, 46, 19, 66],
+        horizontal: true,
+        labels: true,
+        yFmt: "0.0",
+        labelFmt: "0.00",
+        cats: { ref: Q("AH", 5, "AH", end), vals: rows.map((r) => r[0]) },
+        series: [{ name: "Factor", ref: Q("AI", 5, "AI", end), vals: rows.map((r) => r[1]), color: COLOR.s1, kind: "bar" }]
+      });
+    } else notes.push("Productividad: se calcula cuando hay avance por metrados registrado.");
+    notes.forEach((t, i) => {
+      ws.getCell(68 + i, 1).value = t;
+      ws.getCell(68 + i, 1).font = { italic: true, color: { argb: "FF52514E" } };
+    });
+    return specs;
   }
 
   // js/io/respaldo.js
@@ -2406,7 +2626,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       <div class="modal-actions"><button type="button" class="btn" data-close>Cancelar</button><button type="submit" class="btn btn-primary">Restaurar</button></div>
     </form>`, (box) => {
       const modo = () => box.querySelector("input[name=modo]:checked").value;
-      box.querySelectorAll("input[name=modo]").forEach((x) => x.addEventListener("change", () => {
+      box.querySelectorAll("input[name=modo]").forEach((x2) => x2.addEventListener("change", () => {
         box.querySelector("#r-nameBox").hidden = modo() !== "nuevo";
         box.querySelector("#r-warn").hidden = modo() === "nuevo";
       }));
@@ -2591,42 +2811,42 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     if (!(num(metradoComp) > 0)) return null;
     return num(metradoEjec) >= num(metradoComp) * 0.999 ? "S\xED" : "No";
   }
-  function validarEntrada(x, a) {
+  function validarEntrada(x2, a) {
     const e = [];
     const err = (campo, msg) => e.push({ campo, msg });
-    if (x.comprometida === "S\xED" && !x.cumplida) err("cumplida", "Indica si se cumpli\xF3 el compromiso.");
-    if (x.cumplida === "No" && !x.causaNC) err("causaNC", "Falta la causa de no cumplimiento.");
-    if (x.dias === "" || x.dias == null || num(x.dias) < 0 || num(x.dias) > 7) err("dias", "D\xEDas trabajados entre 0 y 7.");
-    if (x.horasDia === "" || x.horasDia == null || num(x.horasDia) < 0 || num(x.horasDia) > 24) err("horasDia", "Horas por d\xEDa entre 0 y 24.");
-    if (x.inicioReal === null) err("inicioReal", "Fecha de inicio real no v\xE1lida.");
-    if (x.finReal === null) err("finReal", "Fecha de fin real no v\xE1lida.");
-    if (x.inicioReal && x.finReal && toDay(x.finReal) < toDay(x.inicioReal)) err("finReal", "El fin real no puede ser anterior al inicio real.");
-    if (num(x.metradoEjec) < 0) err("metradoEjec", "El metrado no puede ser negativo.");
-    if (!(num(a.metrado) > 0) && (x.avanceManual === "" || x.avanceManual == null || num(x.avanceManual) < 0 || num(x.avanceManual) > 100))
+    if (x2.comprometida === "S\xED" && !x2.cumplida) err("cumplida", "Indica si se cumpli\xF3 el compromiso.");
+    if (x2.cumplida === "No" && !x2.causaNC) err("causaNC", "Falta la causa de no cumplimiento.");
+    if (x2.dias === "" || x2.dias == null || num(x2.dias) < 0 || num(x2.dias) > 7) err("dias", "D\xEDas trabajados entre 0 y 7.");
+    if (x2.horasDia === "" || x2.horasDia == null || num(x2.horasDia) < 0 || num(x2.horasDia) > 24) err("horasDia", "Horas por d\xEDa entre 0 y 24.");
+    if (x2.inicioReal === null) err("inicioReal", "Fecha de inicio real no v\xE1lida.");
+    if (x2.finReal === null) err("finReal", "Fecha de fin real no v\xE1lida.");
+    if (x2.inicioReal && x2.finReal && toDay(x2.finReal) < toDay(x2.inicioReal)) err("finReal", "El fin real no puede ser anterior al inicio real.");
+    if (num(x2.metradoEjec) < 0) err("metradoEjec", "El metrado no puede ser negativo.");
+    if (!(num(a.metrado) > 0) && (x2.avanceManual === "" || x2.avanceManual == null || num(x2.avanceManual) < 0 || num(x2.avanceManual) > 100))
       err("avance", "Sin metrado planificado, indica el avance acumulado (0 a 100 %).");
-    for (const [c] of CATS) if (num(x.personal?.[c]) < 0) err("personal", "Las cantidades de personal no pueden ser negativas.");
-    if ((x.perdidas || []).some((p) => !p.causa && (p.horas || p.personas))) err("perdidas", "Cada p\xE9rdida necesita una causa.");
-    if (!x.registradoPor) err("registradoPor", "Indica qui\xE9n registra.");
+    for (const [c] of CATS) if (num(x2.personal?.[c]) < 0) err("personal", "Las cantidades de personal no pueden ser negativas.");
+    if ((x2.perdidas || []).some((p) => !p.causa && (p.horas || p.personas))) err("perdidas", "Cada p\xE9rdida necesita una causa.");
+    if (!x2.registradoPor) err("registradoPor", "Indica qui\xE9n registra.");
     return e;
   }
-  function construirRegistro(a, w, x, prev = null) {
+  function construirRegistro(a, w, x2, prev = null) {
     const wIso = toIso(w);
     const { hayPlan, comp, metradoComp } = compromisoDe(a, w);
     const personal = {};
     let tot = 0;
     for (const [c] of CATS) {
-      const n = num(x.personal?.[c]);
+      const n = num(x2.personal?.[c]);
       if (n) {
         personal[c] = n;
         tot += n;
       }
     }
-    const met = x.metradoEjec === "" || x.metradoEjec == null ? null : num(x.metradoEjec);
+    const met = x2.metradoEjec === "" || x2.metradoEjec == null ? null : num(x2.metradoEjec);
     const acum = metradoPrev(a.uid, wIso) + num(met);
-    const comprometida = comp ? "S\xED" : hayPlan ? "No" : x.comprometida || "No";
+    const comprometida = comp ? "S\xED" : hayPlan ? "No" : x2.comprometida || "No";
     const auto = comp ? cumplidaAuto(metradoComp, met) : null;
-    const cumplida = comprometida === "S\xED" ? auto || x.cumplida || "" : "";
-    const keep = (k, d = null) => x[k] !== void 0 ? x[k] : prev?.[k] ?? d;
+    const cumplida = comprometida === "S\xED" ? auto || x2.cumplida || "" : "";
+    const keep = (k, d = null) => x2[k] !== void 0 ? x2[k] : prev?.[k] ?? d;
     return {
       id: regId(a.uid, w),
       uid: a.uid,
@@ -2634,33 +2854,33 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       semana: wIso,
       comprometida,
       cumplida,
-      causaNC: cumplida === "No" ? x.causaNC || "" : "",
+      causaNC: cumplida === "No" ? x2.causaNC || "" : "",
       metradoComp: comp ? metradoComp : null,
-      inicioReal: x.inicioReal || "",
-      finReal: x.finReal || "",
+      inicioReal: x2.inicioReal || "",
+      finReal: x2.finReal || "",
       turno: keep("turno", "D\xEDa"),
-      dias: num(x.dias),
-      horasDia: num(x.horasDia),
+      dias: num(x2.dias),
+      horasDia: num(x2.horasDia),
       personal,
       personalTotal: tot,
-      hhTrab: tot * num(x.dias) * num(x.horasDia),
-      hhExtra: x.hhExtra === "" || x.hhExtra == null ? null : num(x.hhExtra),
+      hhTrab: tot * num(x2.dias) * num(x2.horasDia),
+      hhExtra: x2.hhExtra === "" || x2.hhExtra == null ? null : num(x2.hhExtra),
       hhImprod: keep("hhImprod"),
       hhPlanSemana: hhPlan(a, w, w + 6),
       metradoEjec: met,
       unidad: a.unidad || "",
       metradoAcum: acum,
-      avance: x.finReal ? 100 : avanceFrom(a.metrado, acum, x.avanceManual),
-      perdidas: (x.perdidas || []).filter((p) => p.causa),
+      avance: x2.finReal ? 100 : avanceFrom(a.metrado, acum, x2.avanceManual),
+      perdidas: (x2.perdidas || []).filter((p) => p.causa),
       equipos: keep("equipos", []),
       protocolos: keep("protocolos"),
       noConformidades: keep("noConformidades"),
       retrabajoHH: keep("retrabajoHH"),
       incidentes: keep("incidentes"),
-      registradoPor: x.registradoPor,
-      fuente: x.fuente || "Tareo",
+      registradoPor: x2.registradoPor,
+      fuente: x2.fuente || "Tareo",
       fechaRegistro: (/* @__PURE__ */ new Date()).toISOString(),
-      obs: x.obs ?? prev?.obs ?? ""
+      obs: x2.obs ?? prev?.obs ?? ""
     };
   }
 
@@ -2669,8 +2889,8 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   var FIRST_ROW = 6;
   var BLANK_ROWS = 10;
   var causaTxt = (c) => {
-    const x = CAUSAS.find(([k]) => k === c);
-    return x ? `${x[0]} \xB7 ${x[1]}` : "";
+    const x2 = CAUSAS.find(([k]) => k === c);
+    return x2 ? `${x2[0]} \xB7 ${x2[1]}` : "";
   };
   var tipoTxt = (c) => `${c} \xB7 ${tipoName(c)}`;
   var codeOf = (s) => String(s || "").split("\xB7")[0].trim();
@@ -2822,7 +3042,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     const last = R - 1;
     const wl = wb.addWorksheet("Listas", { state: "hidden" });
     const lists = { A: CAUSAS.map(([c]) => causaTxt(c)), B: DISC.flatMap((d) => d.tipos.map(([c]) => tipoTxt(c))), C: UNIDADES, D: ["S\xED", "No"], E: Object.keys(sectores()).sort() };
-    for (const [colLetter, vals] of Object.entries(lists)) vals.forEach((x, i) => wl.getCell(`${colLetter}${i + 1}`).value = x);
+    for (const [colLetter, vals] of Object.entries(lists)) vals.forEach((x2, i) => wl.getCell(`${colLetter}${i + 1}`).value = x2);
     const dv = (k, letter, n, r0 = FIRST_ROW, r1 = last) => {
       for (let r = r0; r <= r1; r++) ws.getCell(r, IDX[k]).dataValidation = { type: "list", allowBlank: true, formulae: [`Listas!$${letter}$1:$${letter}$${Math.max(1, n)}`], showErrorMessage: true, errorTitle: "Valor no v\xE1lido", error: "Elige un valor de la lista." };
     };
@@ -2834,9 +3054,9 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     for (const k of ["metEjec", "dias", "horas", "hhExtra", "horasPer", "persPer", ...CATS.map(([c]) => "cat_" + c)])
       for (let r = FIRST_ROW; r <= last; r++) ws.getCell(r, IDX[k]).dataValidation = { type: "decimal", operator: "greaterThanOrEqual", allowBlank: true, formulae: [0], showErrorMessage: true, error: "Ingresa un n\xFAmero mayor o igual a 0." };
     const wm = wb.addWorksheet("_meta", { state: "veryHidden" });
-    [["version", CAMPO_VERSION], ["pid", state.pid], ["semana", wIso], ["proyecto", P().nombre], ["exportado", (/* @__PURE__ */ new Date()).toISOString()]].forEach(([k, x], i) => {
+    [["version", CAMPO_VERSION], ["pid", state.pid], ["semana", wIso], ["proyecto", P().nombre], ["exportado", (/* @__PURE__ */ new Date()).toISOString()]].forEach(([k, x2], i) => {
       wm.getCell(i + 1, 1).value = k;
-      wm.getCell(i + 1, 2).value = x;
+      wm.getCell(i + 1, 2).value = x2;
     });
     const wi = wb.addWorksheet("Instrucciones");
     wi.getColumn(1).width = 110;
@@ -2984,7 +3204,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       if (hasWork && estado !== "error") {
         const c = nueva ? null : compOf(a.uid, w);
         const auto = c ? cumplidaAuto(c.metradoComp, o.metEjec) : null;
-        const x = {
+        const x2 = {
           comprometida: c ? "S\xED" : "No",
           cumplida: auto || (o.cumplidaManual === "S\xED" || o.cumplidaManual === "No" ? o.cumplidaManual : ""),
           causaNC: codeOf(o.causaNC),
@@ -3002,17 +3222,17 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
           obs: o.obs || void 0
         };
         if (empty(o.horas)) warn(`Sin horas por d\xEDa: se usan ${fmtN(horasDia(), 1)} h.`);
-        if (x.causaNC && !CAUSAS.some(([k]) => k === x.causaNC)) fail(`Causa "${o.causaNC}" no est\xE1 en el cat\xE1logo.`);
-        if (x.perdidas[0] && !CAUSAS.some(([k]) => k === x.perdidas[0].causa)) fail(`Causa de p\xE9rdida "${o.causaPer}" no est\xE1 en el cat\xE1logo.`);
-        if (x.perdidas[0] && !(x.perdidas[0].horas > 0 && x.perdidas[0].personas > 0)) warn("P\xE9rdida sin horas o personas: suma 0 HH.");
-        if (!(num(a.metrado) > 0)) x.avanceManual = x.finReal ? 100 : regOf(a.uid, w - 7)?.avance ?? 0;
-        const val2 = validarEntrada(x, a).filter((e) => e.campo !== "registradoPor");
+        if (x2.causaNC && !CAUSAS.some(([k]) => k === x2.causaNC)) fail(`Causa "${o.causaNC}" no est\xE1 en el cat\xE1logo.`);
+        if (x2.perdidas[0] && !CAUSAS.some(([k]) => k === x2.perdidas[0].causa)) fail(`Causa de p\xE9rdida "${o.causaPer}" no est\xE1 en el cat\xE1logo.`);
+        if (x2.perdidas[0] && !(x2.perdidas[0].horas > 0 && x2.perdidas[0].personas > 0)) warn("P\xE9rdida sin horas o personas: suma 0 HH.");
+        if (!(num(a.metrado) > 0)) x2.avanceManual = x2.finReal ? 100 : regOf(a.uid, w - 7)?.avance ?? 0;
+        const val2 = validarEntrada(x2, a).filter((e) => e.campo !== "registradoPor");
         for (const e of val2) fail(e.msg);
         if (estado !== "error") {
           const prev = nueva ? null : regOf(a.uid, w);
-          reg = construirRegistro(a, w, x, prev);
+          reg = construirRegistro(a, w, x2, prev);
           if (prev) warn("Reemplaza el registro que ya ten\xEDa esta semana.");
-          if (c && num(c.metradoComp) > 0 && reg.cumplida === "No" && !x.causaNC) fail("No alcanz\xF3 el metrado comprometido: falta la causa de no cumplimiento.");
+          if (c && num(c.metradoComp) > 0 && reg.cumplida === "No" && !x2.causaNC) fail("No alcanz\xF3 el metrado comprometido: falta la causa de no cumplimiento.");
           if (num(a.metrado) > 0 && reg.metradoAcum > num(a.metrado) * 1.001) warn(`El metrado acumulado (${fmtN(reg.metradoAcum, 2)}) supera el total planificado (${fmtN(a.metrado, 2)}).`);
         }
       }
@@ -3041,15 +3261,15 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     let who = lsGet(WHO_KEY) || "";
     let res = planCambios(parsed.meta, parsed.rows, who);
     const draw = (box) => {
-      const n = (e) => res.filter((x) => x.estado === e).length;
-      const loadable = res.filter((x) => x.reg || x.task || x.nueva).length;
+      const n = (e) => res.filter((x2) => x2.estado === e).length;
+      const loadable = res.filter((x2) => x2.reg || x2.task || x2.nueva).length;
       box.querySelector("#pv-sum").innerHTML = `${res.length} filas le\xEDdas \xB7 <strong>${loadable}</strong> se cargar\xE1n \xB7 ${n("aviso")} con aviso \xB7 ${n("error")} con error (se omiten) \xB7 ${n("omitida")} sin datos.`;
-      box.querySelector("#pv-body").innerHTML = res.map((x) => `<tr class="${x.estado === "error" ? "row-bad" : ""}">
-      <td class="mono">${x.o.fila}</td><td class="code">${esc(x.a?.idTarea || x.o.idTarea || "")}</td><td class="desc">${esc(x.a?.desc || x.o.desc || "")}</td>
-      <td class="mono num">${x.reg && x.reg.metradoEjec != null ? `${fmtN(x.reg.metradoEjec, 2)}${x.reg.metradoComp ? " / " + fmtN(x.reg.metradoComp, 2) : ""} ${esc(x.a?.unidad || "")}` : "\u2014"}</td>
-      <td class="mono num">${x.reg ? fmtN(x.reg.hhTrab + num(x.reg.hhExtra)) : "\u2014"}</td>
-      <td>${x.reg?.cumplida ? `<span class="pill ${x.reg.cumplida === "S\xED" ? "ok" : "bad"}">${x.reg.cumplida}</span>` : '<span class="sub">\u2014</span>'}</td>
-      <td>${PILL[x.estado]}</td><td class="help">${x.msgs.map(esc).join("<br>")}</td></tr>`).join("");
+      box.querySelector("#pv-body").innerHTML = res.map((x2) => `<tr class="${x2.estado === "error" ? "row-bad" : ""}">
+      <td class="mono">${x2.o.fila}</td><td class="code">${esc(x2.a?.idTarea || x2.o.idTarea || "")}</td><td class="desc">${esc(x2.a?.desc || x2.o.desc || "")}</td>
+      <td class="mono num">${x2.reg && x2.reg.metradoEjec != null ? `${fmtN(x2.reg.metradoEjec, 2)}${x2.reg.metradoComp ? " / " + fmtN(x2.reg.metradoComp, 2) : ""} ${esc(x2.a?.unidad || "")}` : "\u2014"}</td>
+      <td class="mono num">${x2.reg ? fmtN(x2.reg.hhTrab + num(x2.reg.hhExtra)) : "\u2014"}</td>
+      <td>${x2.reg?.cumplida ? `<span class="pill ${x2.reg.cumplida === "S\xED" ? "ok" : "bad"}">${x2.reg.cumplida}</span>` : '<span class="sub">\u2014</span>'}</td>
+      <td>${PILL[x2.estado]}</td><td class="help">${x2.msgs.map(esc).join("<br>")}</td></tr>`).join("");
       const btn = box.querySelector("#pv-ok");
       btn.disabled = !loadable;
       btn.textContent = `Cargar ${loadable} ${loadable === 1 ? "fila" : "filas"}`;
@@ -3086,33 +3306,33 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   }
   async function aplicar(res, w, who, fileName) {
     let nReg = 0, nNew = 0, nProg = 0;
-    for (const x of res) {
-      if (x.nueva) {
-        await saveTask(x.nueva);
+    for (const x2 of res) {
+      if (x2.nueva) {
+        await saveTask(x2.nueva);
         nNew++;
       }
-      if (x.task) {
-        await saveTask(x.task);
+      if (x2.task) {
+        await saveTask(x2.task);
         nProg++;
       }
-      if (x.reg) {
-        await saveReg(x.reg);
+      if (x2.reg) {
+        await saveReg(x2.reg);
         nReg++;
       }
     }
     const prog = new Map(state.acts.map((a) => [a.uid, a]));
-    for (const x of res) {
-      if (x.nueva) prog.set(x.nueva.uid, x.nueva);
-      if (x.task) prog.set(x.task.uid, x.task);
+    for (const x2 of res) {
+      if (x2.nueva) prog.set(x2.nueva.uid, x2.nueva);
+      if (x2.task) prog.set(x2.task.uid, x2.task);
     }
     await saveCorte({
       semana: toIso(w),
       fecha: (/* @__PURE__ */ new Date()).toISOString(),
       cargadoPor: who,
       archivo: fileName,
-      resumen: { filas: res.length, registros: nReg, nuevas: nNew, reprogramadas: nProg, errores: res.filter((x) => x.estado === "error").length },
+      resumen: { filas: res.length, registros: nReg, nuevas: nNew, reprogramadas: nProg, errores: res.filter((x2) => x2.estado === "error").length },
       programa: [...prog.values()].map((a) => ({ uid: a.uid, idTarea: a.idTarea, inicio: a.inicio, fin: a.fin, duracion: durOf(a) })),
-      log: res.map((x) => ({ fila: x.o.fila, idTarea: x.a?.idTarea || "", estado: x.estado, detalle: x.msgs.join(" ") }))
+      log: res.map((x2) => ({ fila: x2.o.fila, idTarea: x2.a?.idTarea || "", estado: x2.estado, detalle: x2.msgs.join(" ") }))
     });
     toast(`Corte cargado: ${nReg} registros, ${nProg} reprogramaciones, ${nNew} no planificadas.`, 5e3);
   }
@@ -3281,12 +3501,12 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     panel.dataset.key = a.uid + w;
     const r = regOf(a.uid, w) || {};
     const prevMetrado = metradoPrev(a.uid, toIso(w));
-    const prevRegs = state.regs.filter((x) => x.uid === a.uid && x.semana < toIso(w)).sort((x, y) => x.semana.localeCompare(y.semana));
-    const inicioReal = r.inicioReal ?? (prevRegs.find((x) => x.inicioReal)?.inicioReal || "");
+    const prevRegs = state.regs.filter((x2) => x2.uid === a.uid && x2.semana < toIso(w)).sort((x2, y) => x2.semana.localeCompare(y.semana));
+    const inicioReal = r.inicioReal ?? (prevRegs.find((x2) => x2.inicioReal)?.inicioReal || "");
     const plannedDays = workDaysIn(a, w, w + 6);
     const { hayPlan, comp, metradoComp } = compromisoDe(a, w);
     const hasMet = num(a.metrado) > 0;
-    const v = (x, d = "") => x ?? d;
+    const v = (x2, d = "") => x2 ?? d;
     panel.hidden = false;
     panel.innerHTML = `
     <div class="panel-head"><div><div class="eyebrow">Registro semanal \xB7 ${esc(fmt(w))} \u2013 ${esc(fmt(w + 6, true))}</div><h2 style="margin-top:4px">${esc(a.idTarea)} \xB7 ${esc(a.desc)}</h2>
@@ -3435,8 +3655,8 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   async function onSave(a, w, prev) {
     if (!requirePid()) return;
     for (const el of $("exFormPanel").querySelectorAll(".err")) el.textContent = "";
-    const x = readExecForm();
-    const errs = validarEntrada(x, a);
+    const x2 = readExecForm();
+    const errs = validarEntrada(x2, a);
     for (const e of errs) {
       const el = $("xe-" + e.campo);
       if (el && !el.textContent) el.textContent = e.msg;
@@ -3445,9 +3665,9 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       $("exFormPanel").querySelector(".err:not(:empty)")?.scrollIntoView({ block: "center" });
       return;
     }
-    lsSet(WHO_KEY, x.registradoPor);
+    lsSet(WHO_KEY, x2.registradoPor);
     try {
-      await saveReg(construirRegistro(a, w, x, prev.id ? prev : null));
+      await saveReg(construirRegistro(a, w, x2, prev.id ? prev : null));
       toast(`Registro de ${a.idTarea} guardado.`);
       state.exec.uid = null;
       $("exFormPanel").hidden = true;
@@ -3582,17 +3802,17 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       return;
     }
     const d0 = weeks[0], nDays = weeks.length * 7;
-    const x = (d) => (d - d0) * DAY_W;
-    const span = (s, e) => `left:${x(s)}px;width:${Math.max(DAY_W * 0.6, (e - s + 1) * DAY_W - 2)}px`;
+    const x2 = (d) => (d - d0) * DAY_W;
+    const span = (s, e) => `left:${x2(s)}px;width:${Math.max(DAY_W * 0.6, (e - s + 1) * DAY_W - 2)}px`;
     const cut = cutWeek();
     const t = todayDay();
     const data = rowsData();
     let html = `<div class="ab" style="--track:${nDays * DAY_W}px"><div class="ab-row ab-head"><div class="ab-label">Actividad <span class="help">\u0394 fin vs LB</span></div><div class="ab-track">`;
     weeks.forEach((w, i) => {
-      html += `<div class="ab-week" style="left:${x(w)}px;width:${7 * DAY_W}px"><b>S${i + 1}</b> ${fmt(w)}</div>`;
+      html += `<div class="ab-week" style="left:${x2(w)}px;width:${7 * DAY_W}px"><b>S${i + 1}</b> ${fmt(w)}</div>`;
     });
     html += "</div></div>";
-    const grid = weeks.map((w) => `<i class="ab-grid" style="left:${x(w)}px"></i>`).join("") + (cut != null ? `<i class="ab-cut" style="left:${x(cut + 7)}px" title="Corte: ${esc(fmt(cut + 6, true))}"></i>` : "") + (t >= d0 && t < d0 + nDays ? `<i class="ab-today" style="left:${x(t) + DAY_W / 2}px"></i>` : "");
+    const grid = weeks.map((w) => `<i class="ab-grid" style="left:${x2(w)}px"></i>`).join("") + (cut != null ? `<i class="ab-cut" style="left:${x2(cut + 7)}px" title="Corte: ${esc(fmt(cut + 6, true))}"></i>` : "") + (t >= d0 && t < d0 + nDays ? `<i class="ab-today" style="left:${x2(t) + DAY_W / 2}px"></i>` : "");
     const groups = [...new Set(data.map((r) => r.a.sector))].sort();
     for (const g of groups) {
       const rows = data.filter((r) => r.a.sector === g);
@@ -3705,9 +3925,9 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
       series.forEach((s, j) => {
         const v = s.values[i];
         if (v == null) return;
-        const x = x0 + j * (bw + gap), y = Y(v), hh = M.t + ih - y;
-        svg += `<path d="M${x},${M.t + ih}V${y + Math.min(4, hh)}q0,-${Math.min(4, hh)} ${Math.min(4, hh)},-${Math.min(4, hh)}H${x + bw - Math.min(4, hh)}q${Math.min(4, hh)},0 ${Math.min(4, hh)},${Math.min(4, hh)}V${M.t + ih}Z" fill="var(${s.color})"/>`;
-        if (valueLabels && v > 0) svg += `<text class="c-val" x="${x + bw / 2}" y="${y - 4}" text-anchor="middle">${esc(valueLabels(v, i, j))}</text>`;
+        const x2 = x0 + j * (bw + gap), y = Y(v), hh = M.t + ih - y;
+        svg += `<path d="M${x2},${M.t + ih}V${y + Math.min(4, hh)}q0,-${Math.min(4, hh)} ${Math.min(4, hh)},-${Math.min(4, hh)}H${x2 + bw - Math.min(4, hh)}q${Math.min(4, hh)},0 ${Math.min(4, hh)},${Math.min(4, hh)}V${M.t + ih}Z" fill="var(${s.color})"/>`;
+        if (valueLabels && v > 0) svg += `<text class="c-val" x="${x2 + bw / 2}" y="${y - 4}" text-anchor="middle">${esc(valueLabels(v, i, j))}</text>`;
       });
       if (i % every === 0) svg += `<text class="c-tick" x="${cx}" y="${h - M.b + 18}" text-anchor="middle">${esc(l)}</text>`;
       const tip = `${l}
@@ -3753,8 +3973,8 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
       }
       tip.textContent = t.dataset.tip;
       tip.hidden = false;
-      const x = Math.min(window.innerWidth - tip.offsetWidth - 8, e.clientX + 14);
-      tip.style.left = x + "px";
+      const x2 = Math.min(window.innerWidth - tip.offsetWidth - 8, e.clientX + 14);
+      tip.style.left = x2 + "px";
       tip.style.top = Math.max(8, e.clientY - tip.offsetHeight - 10) + "px";
       const cross = svg?.querySelector(".c-cross");
       if (cross && t.dataset.x) {
@@ -3782,7 +4002,7 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
     }
     const k = kpisAtCut();
     const kpi = (l, v, s2, tone2) => `<div class="kpi${tone2 ? " " + tone2 : ""}"><span class="eyebrow">${l}</span><span class="v">${v}</span><span class="s">${s2}</span></div>`;
-    const tone = (x) => x == null ? "" : x >= 0.98 ? "good" : x >= 0.9 ? "warn" : "bad";
+    const tone = (x2) => x2 == null ? "" : x2 >= 0.98 ? "good" : x2 >= 0.9 ? "warn" : "bad";
     $("indKpis").innerHTML = [
       kpi("BAC", fmtN(k.bac), `HH presupuestadas${latestBaseline() ? ` (LB v${latestBaseline().version})` : " (sin l\xEDnea base)"}`),
       kpi("PV", k.cut != null ? fmtN(k.pv) : "\u2014", k.cut != null ? `planificado al ${fmt(k.cut + 6)} \xB7 ${fmtPct(k.avancePlan)}` : "sin corte a\xFAn"),
@@ -3793,7 +4013,7 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
       kpi("EAC", k.eac != null ? fmtN(k.eac) : "\u2014", k.eac != null ? `HH al terminar (${k.eac > k.bac ? "+" : ""}${fmtN(k.eac - k.bac)} vs BAC)` : "BAC / CPI")
     ].join("");
     const s = sCurve();
-    const weeks = s.weeks.map((x) => x.w);
+    const weeks = s.weeks.map((x2) => x2.w);
     const labels = weeks.map(wLabel);
     const cutI = s.cut != null ? idx(s.cut, weeks) : null;
     const pac = pacSeries();
@@ -3816,13 +4036,13 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
       labels,
       marker: cutI != null && cutI >= 0 ? { i: cutI, label: "corte" } : null,
       series: [
-        { name: "PV \xB7 planificado", short: "PV", color: "--s1", values: s.weeks.map((x) => x.pvCum) },
-        { name: "EV \xB7 ganado", short: "EV", color: "--s2", values: s.weeks.map((x) => x.evCum) },
-        { name: "AC \xB7 real", short: "AC", color: "--s3", values: s.weeks.map((x) => x.acCum) }
+        { name: "PV \xB7 planificado", short: "PV", color: "--s1", values: s.weeks.map((x2) => x2.pvCum) },
+        { name: "EV \xB7 ganado", short: "EV", color: "--s2", values: s.weeks.map((x2) => x2.evCum) },
+        { name: "AC \xB7 real", short: "AC", color: "--s3", values: s.weeks.map((x2) => x2.acCum) }
       ],
       tipFmt: (v) => fmtN(v) + " HH"
     });
-    $("chS-t").innerHTML = `<table><thead><tr><th>Semana</th><th>Lunes</th><th class="num">PV sem.</th><th class="num">PV acum.</th><th class="num">EV acum.</th><th class="num">AC sem.</th><th class="num">AC acum.</th><th class="num">SPI</th><th class="num">CPI</th></tr></thead><tbody>${s.weeks.map((x, i) => `<tr><td>${labels[i]}</td><td class="mono">${fmt(x.w, true)}</td><td class="mono num">${fmtN(x.pv)}</td><td class="mono num">${fmtN(x.pvCum)}</td><td class="mono num">${x.evCum == null ? "\u2014" : fmtN(x.evCum)}</td><td class="mono num">${x.ac == null ? "\u2014" : fmtN(x.ac)}</td><td class="mono num">${x.acCum == null ? "\u2014" : fmtN(x.acCum)}</td><td class="mono num">${x.evCum != null && x.pvCum ? fmtN(x.evCum / x.pvCum, 2) : "\u2014"}</td><td class="mono num">${x.evCum != null && x.acCum ? fmtN(x.evCum / x.acCum, 2) : "\u2014"}</td></tr>`).join("")}</tbody></table>`;
+    $("chS-t").innerHTML = `<table><thead><tr><th>Semana</th><th>Lunes</th><th class="num">PV sem.</th><th class="num">PV acum.</th><th class="num">EV acum.</th><th class="num">AC sem.</th><th class="num">AC acum.</th><th class="num">SPI</th><th class="num">CPI</th></tr></thead><tbody>${s.weeks.map((x2, i) => `<tr><td>${labels[i]}</td><td class="mono">${fmt(x2.w, true)}</td><td class="mono num">${fmtN(x2.pv)}</td><td class="mono num">${fmtN(x2.pvCum)}</td><td class="mono num">${x2.evCum == null ? "\u2014" : fmtN(x2.evCum)}</td><td class="mono num">${x2.ac == null ? "\u2014" : fmtN(x2.ac)}</td><td class="mono num">${x2.acCum == null ? "\u2014" : fmtN(x2.acCum)}</td><td class="mono num">${x2.evCum != null && x2.pvCum ? fmtN(x2.evCum / x2.pvCum, 2) : "\u2014"}</td><td class="mono num">${x2.evCum != null && x2.acCum ? fmtN(x2.evCum / x2.acCum, 2) : "\u2014"}</td></tr>`).join("")}</tbody></table>`;
     const pacByW = new Map(pac.map((p) => [p.w, p]));
     $("chP-c").innerHTML = pac.length ? barChart({
       width: width("chP-c"),
@@ -3837,10 +4057,10 @@ Avance por metrados: ${fmtN(r.done ? 100 : r.av)} %`;
         return `${fmtPct(v)} (${p.cumplidas} de ${p.comprometidas})${p.congelado ? "" : " \xB7 sin plan congelado"}`;
       }
     }) : '<div class="help">Congela planes semanales y carga cortes para ver el PAC.</div>';
-    $("chP-nc").innerHTML = nc.length ? `<div class="help" style="margin-top:8px">Causas de no cumplimiento: ${nc.slice(0, 4).map((x) => `<span class="code">${esc(x.causa)}</span> ${esc(name(CAUSAS, x.causa))} (${x.n})`).join(" \xB7 ")}</div>` : "";
+    $("chP-nc").innerHTML = nc.length ? `<div class="help" style="margin-top:8px">Causas de no cumplimiento: ${nc.slice(0, 4).map((x2) => `<span class="code">${esc(x2.causa)}</span> ${esc(name(CAUSAS, x2.causa))} (${x2.n})`).join(" \xB7 ")}</div>` : "";
     $("chH-c").innerHTML = barChart({ width: width("chH-c"), labels, series: [
-      { name: "Plan (LB)", color: "--s1", values: pers.map((x) => x.plan) },
-      { name: "Real", color: "--s2", values: pers.map((x) => x.real) }
+      { name: "Plan (LB)", color: "--s1", values: pers.map((x2) => x2.plan) },
+      { name: "Real", color: "--s2", values: pers.map((x2) => x2.real) }
     ], tipFmt: (v) => fmtN(v, 1) + " personas/d\xEDa" });
     $("chL-c").innerHTML = par.rows.length ? hbarChart({ width: width("chL-c"), labelW: 230, rows: par.rows.map((r) => ({ label: name(CAUSAS, r.causa), value: r.hh, note: fmtPct(r.acumPct) + " acum.", tip: `${r.causa} \xB7 ${name(CAUSAS, r.causa)}
 ${fmtN(r.hh, 1)} HH perdidas \xB7 ${fmtPct(r.hh / par.total, 1)} del total
@@ -3849,9 +4069,9 @@ Acumulado: ${fmtPct(r.acumPct)}` })), xFmt: (v) => fmtN(v) + " HH" }) : '<div cl
       width: width("chF-c"),
       labelW: 230,
       ref: { value: 1, label: "1,0 = plan" },
-      rows: pf.sort((a, b) => b.pf - a.pf).map((x) => ({ label: `${x.tipo} \xB7 ${tipoName(x.tipo)}`, value: x.pf, tip: `${x.tipo} \xB7 ${tipoName(x.tipo)} (${x.n} actividades)
-HH reales ${fmtN(x.ac)} \xB7 HH ganadas ${fmtN(x.ev)}
-Factor ${fmtN(x.pf, 2)}` })),
+      rows: pf.sort((a, b) => b.pf - a.pf).map((x2) => ({ label: `${x2.tipo} \xB7 ${tipoName(x2.tipo)}`, value: x2.pf, tip: `${x2.tipo} \xB7 ${tipoName(x2.tipo)} (${x2.n} actividades)
+HH reales ${fmtN(x2.ac)} \xB7 HH ganadas ${fmtN(x2.ev)}
+Factor ${fmtN(x2.pf, 2)}` })),
       xFmt: (v) => fmtN(v, 2)
     }) : '<div class="help">Se calcula cuando hay avance por metrados registrado.</div>';
   }
@@ -3988,8 +4208,8 @@ Factor ${fmtN(x.pf, 2)}` })),
   // js/main.js
   var RENDER = { entrada: renderEntrada, gantt: renderGantt, ejecucion: renderEjecucion, asbuilt: renderAsBuilt, indicadores: renderIndicadores };
   function renderStatus() {
-    const txt = state.mode === "db" ? state.readOnly ? "Guardado en la nube \xB7 solo lectura" : "Guardado en la nube" : state.mode === "local" ? "Guardado en este navegador" : "Conectando\u2026";
-    $("status").innerHTML = `<span class="dot ${state.mode === "db" ? "ok" : state.mode === "local" ? "local" : ""}"></span><span>${txt}</span>`;
+    const txt2 = state.mode === "db" ? state.readOnly ? "Guardado en la nube \xB7 solo lectura" : "Guardado en la nube" : state.mode === "local" ? "Guardado en este navegador" : "Conectando\u2026";
+    $("status").innerHTML = `<span class="dot ${state.mode === "db" ? "ok" : state.mode === "local" ? "local" : ""}"></span><span>${txt2}</span>`;
   }
   var queued = false;
   function renderAll() {

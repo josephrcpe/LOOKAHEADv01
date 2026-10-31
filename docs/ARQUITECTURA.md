@@ -70,6 +70,12 @@ Rutas alternan colección/documento. Todas cuelgan de `proyectos/{pid}`.
 - Hoja `_meta` (muy oculta): `version, pid, semana`. El importador rechaza otro proyecto u otra versión.
 - `readCampo` → `planCambios` (valida y arma registros, reprogramaciones y tareas no planificadas; estados `ok | aviso | error | omitida`) → vista previa → `aplicar` (escribe y guarda el corte). Las filas con error no se cargan.
 
+### Gráficos del Excel (`io/excel-charts.js`)
+
+- ExcelJS no escribe gráficos. `excel-report.js` crea la hoja "Gráficos" (tablas de datos desde la columna V) y arma una especificación por gráfico; `insertarGraficos` abre el .xlsx con JSZip y agrega `xl/charts/chartN.xml`, `xl/drawings/drawingN.xml`, relaciones y tipos de contenido.
+- Cada serie apunta a un rango (editable en Excel) y lleva caché de valores. La curva S lee la hoja "Curva S" (columnas D, E, G); si cambias esas columnas, actualiza `hojaGraficos`.
+- Si la inserción falla, el Excel se descarga igual, sin gráficos.
+
 ### Respaldo (`io/respaldo.js`)
 
 - Archivo `.json`: `{ formato: "lookahead-respaldo", version: 1, exportado, pid, proyecto, colecciones: { tareas, lineasBase, planesSemanales, registros, cortes, restricciones } }`. Las colecciones salen de `SUBS` en `data.js`, así que una subcolección nueva entra sola en el respaldo.

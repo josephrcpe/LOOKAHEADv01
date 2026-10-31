@@ -58,7 +58,7 @@ Arriba: **Nuevo**, **Guardar como…** (copia completa) y **Abrir** para cambiar
 
 ## 4. Exportar
 
-- **Exportar a Excel**: reporte con fórmulas (lookahead, ejecución, pérdidas, equipos, restricciones, planes semanales, curva S, indicadores, línea base y catálogos).
+- **Exportar a Excel**: reporte con fórmulas. La hoja **Gráficos** trae la curva S, el PAC semanal, el personal plan vs real, las HH perdidas por causa y el factor de productividad como gráficos de Excel: puedes editarlos o copiarlos a tu informe, sin macros. Además incluye las hojas de lookahead, ejecución, pérdidas, equipos, restricciones, planes semanales, curva S, indicadores, línea base y catálogos).
 - **Exportar datos (CSV)**: ZIP con una tabla por archivo, lista para análisis y para juntar varios proyectos.
 
 ## 5. Respaldo en tu equipo

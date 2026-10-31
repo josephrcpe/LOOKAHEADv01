@@ -1,14 +1,15 @@
 // Excel de reporte (botón "Exportar a Excel"): lookahead con fórmulas y hojas de control.
-// Hojas: Lookahead (Gantt de 21 días con fórmulas), Ejecución semanal, Pérdidas, Equipos, Restricciones,
+// Hojas: Lookahead (Gantt de 21 días con fórmulas), Gráficos (nativos, ver excel-charts.js), Ejecución semanal, Pérdidas, Equipos, Restricciones,
 // Planes semanales, Curva S, Indicadores, Línea base vN, Registro y Catálogos.
 // Las columnas B (Id Tarea) y U (HH trabajadas) de "Ejecución semanal" son referenciadas por otras hojas:
 // si agregas columnas, hazlo al final.
 
-import { DAYS, MS, DOW, DISC, CATS, CAUSAS, RTIPOS, name, tipoName } from "../config.js";
+import { DAYS, MS, DOW, DISC, CATS, CAUSAS, RTIPOS, PAC_META, name, tipoName } from "../config.js";
 import { num, toDay, toIso, dow, todayDay, fmt, colL } from "../util.js";
 import { state, P, horasDia, sectores, startDay, isWork, personalOn, hhPlan, durOf, byUid, sortActs, inHorizon, latestBaseline, latestReg, regLostHH } from "../state.js";
 import { groupTree, dailyTotals } from "../views/gantt.js";
-import { sCurve, pacSeries } from "../model/metrics.js";
+import { sCurve, pacSeries, weekRange, personalSemanal, paretoPerdidas, productividadPorTipo } from "../model/metrics.js";
+import { insertarGraficos } from "./excel-charts.js";
 import { toast, saveFile } from "../ui.js";
 
 export const fileBase = () => (P().nombre || "proyecto").replace(/[\\/:*?"<>|]/g, "").trim();
@@ -165,6 +166,7 @@ export async function exportExcel() {
     { type: "containsText", operator: "containsText", text: "En curso", priority: 13, style: { font: { color: { argb: "FF1F5F8B" } } } },
   ] });
   ws.autoFilter = { from: { row: R_DATE, column: 1 }, to: { row: R_DATE, column: C.length } };
+  const wg = wb.addWorksheet("Gráficos"); // se llena al final, cuando existen las hojas de datos
 
   // Utilidad para hojas tabulares
   const table = (title, cols, rows, opt = {}) => {
@@ -305,6 +307,73 @@ export async function exportExcel() {
     cc += heads.length + 1;
   }
 
-  const buf = await wb.xlsx.writeBuffer();
+  const charts = hojaGraficos(wg, sc, { headFill, headFont, border });
+  let buf = await wb.xlsx.writeBuffer();
+  try { buf = await insertarGraficos(buf, "Gráficos", charts); }
+  catch (e) { console.error(e); toast("No se pudieron agregar los gráficos; el Excel se descarga sin ellos."); }
   await saveFile(`Lookahead ${fileBase()} ${toIso(h0)}.xlsx`, new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+}
+
+// Hoja "Gráficos": tablas de datos a la derecha (columna V en adelante) y las especificaciones de los gráficos
+// nativos que se insertan después (excel-charts.js). La curva S lee directamente la hoja "Curva S".
+const COLOR = { s1: "2A78D6", s2: "EB6834", s3: "1BAF7A", meta: "8A9099" };
+function hojaGraficos(ws, sc, st) {
+  ws.getCell("A1").value = "Gráficos del proyecto"; ws.getCell("A1").font = { bold: true, size: 14 };
+  ws.getCell("A2").value = "Gráficos de Excel: puedes editarlos, cambiar colores o copiarlos a tu informe. Los datos de la curva S están en la hoja Curva S; los demás, en las tablas de la derecha.";
+  ws.getCell("A2").font = { color: { argb: "FF52514E" }, size: 9 };
+  const weeks = weekRange(); const label = (w) => { const i = weeks.indexOf(w); return i >= 0 ? `S${i + 1}` : fmt(w); };
+  const Q = (c1, r1, c2 = c1, r2 = r1) => `'Gráficos'!$${c1}$${r1}:$${c2}$${r2}`;
+  const specs = []; const notes = [];
+  // Escribe una tabla de datos (encabezados en la fila 4) y devuelve la fila final.
+  const block = (c0, title, heads, rows, fmts) => {
+    ws.getCell(3, c0).value = title; ws.getCell(3, c0).font = { bold: true };
+    heads.forEach((h, j) => { const c = ws.getCell(4, c0 + j); c.value = h; c.fill = st.headFill; c.font = st.headFont; c.border = st.border; ws.getColumn(c0 + j).width = j ? 11 : 22; });
+    rows.forEach((r, i) => r.forEach((v, j) => { const c = ws.getCell(5 + i, c0 + j); c.value = v == null ? null : v; c.border = st.border; if (fmts[j]) c.numFmt = fmts[j]; }));
+    return 4 + rows.length;
+  };
+  for (let c = 1; c <= 19; c++) ws.getColumn(c).width = 9.5;
+  ws.pageSetup = { orientation: "portrait", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 1, printArea: "A1:T70" };
+
+  // 1. Curva S (ancho completo).
+  if (sc.weeks.length) {
+    const n = sc.weeks.length + 1;
+    const ser = (name, col, key, color) => ({ name, ref: `'Curva S'!$${col}$2:$${col}$${n}`, vals: sc.weeks.map((w) => w[key]), color, kind: "line" });
+    specs.push({ title: "Curva S en HH (acumulado)", at: [0, 3, 19, 23], legend: true, yFmt: "#,##0",
+      cats: { ref: `'Curva S'!$A$2:$A$${n}`, vals: sc.weeks.map((w, i) => "S" + (i + 1)) },
+      series: [ser("PV · planificado", "D", "pvCum", COLOR.s1), ser("EV · ganado", "E", "evCum", COLOR.s2), ser("AC · real", "G", "acCum", COLOR.s3)] });
+  }
+  // 2. PAC semanal con meta (V:X).
+  const pac = pacSeries();
+  if (pac.length) {
+    const end = block(22, "PAC semanal", ["Semana", "PAC", "Meta"], pac.map((p) => [label(p.w), p.pac ?? null, PAC_META]), [null, "0%", "0%"]);
+    specs.push({ title: "PAC semanal", at: [0, 25, 9, 44], legend: true, yFmt: "0%", yMax: 1, labels: true, cats: { ref: Q("V", 5, "V", end), vals: pac.map((p) => label(p.w)) },
+      series: [{ name: "PAC", ref: Q("W", 5, "W", end), vals: pac.map((p) => p.pac ?? null), color: COLOR.s1, kind: "bar" },
+        { name: `Meta ${Math.round(PAC_META * 100)} %`, ref: Q("X", 5, "X", end), vals: pac.map(() => PAC_META), color: COLOR.meta, kind: "line", dash: true }] });
+  } else notes.push("PAC: congela planes semanales y carga cortes para verlo.");
+  // 3. Personal plan vs real (Z:AB).
+  const pers = personalSemanal();
+  if (pers.length) {
+    const end = block(26, "Personal por semana (personas/día)", ["Semana", "Plan (LB)", "Real"], pers.map((p) => [label(p.w), +p.plan.toFixed(1), p.real == null ? null : +p.real.toFixed(1)]), [null, "0.0", "0.0"]);
+    specs.push({ title: "Personal por semana: plan vs real", at: [10, 25, 19, 44], legend: true, yFmt: "0", cats: { ref: Q("Z", 5, "Z", end), vals: pers.map((p) => label(p.w)) },
+      series: [{ name: "Plan (LB)", ref: Q("AA", 5, "AA", end), vals: pers.map((p) => p.plan), color: COLOR.s1, kind: "bar" },
+        { name: "Real", ref: Q("AB", 5, "AB", end), vals: pers.map((p) => p.real), color: COLOR.s2, kind: "bar" }] });
+  }
+  // 4. Pareto de HH perdidas (AD:AF).
+  const par = paretoPerdidas();
+  if (par.rows.length) {
+    const rows = par.rows.map((r) => [name(CAUSAS, r.causa), +r.hh.toFixed(1), r.acumPct]);
+    const end = block(30, "HH perdidas por causa (Pareto)", ["Causa", "HH perdidas", "% acumulado"], rows, [null, "#,##0.0", "0%"]);
+    specs.push({ title: "HH perdidas por causa", at: [0, 46, 9, 66], horizontal: true, labels: true, yFmt: "#,##0", cats: { ref: Q("AD", 5, "AD", end), vals: rows.map((r) => r[0]) },
+      series: [{ name: "HH perdidas", ref: Q("AE", 5, "AE", end), vals: rows.map((r) => r[1]), color: COLOR.s1, kind: "bar" }] });
+  } else notes.push("Pérdidas: sin pérdidas registradas.");
+  // 5. Factor de productividad por tipo (AH:AI).
+  const pf = productividadPorTipo().sort((a, b) => b.pf - a.pf);
+  if (pf.length) {
+    const rows = pf.map((p) => [`${p.tipo} · ${tipoName(p.tipo)}`, +p.pf.toFixed(2)]);
+    const end = block(34, "Factor de productividad (HH reales ÷ HH ganadas)", ["Tipo", "Factor"], rows, [null, "0.00"]);
+    specs.push({ title: "Factor de productividad por tipo (1,0 = plan)", at: [10, 46, 19, 66], horizontal: true, labels: true, yFmt: "0.0", labelFmt: "0.00", cats: { ref: Q("AH", 5, "AH", end), vals: rows.map((r) => r[0]) },
+      series: [{ name: "Factor", ref: Q("AI", 5, "AI", end), vals: rows.map((r) => r[1]), color: COLOR.s1, kind: "bar" }] });
+  } else notes.push("Productividad: se calcula cuando hay avance por metrados registrado.");
+  notes.forEach((t, i) => { ws.getCell(68 + i, 1).value = t; ws.getCell(68 + i, 1).font = { italic: true, color: { argb: "FF52514E" } }; });
+  return specs;
 }

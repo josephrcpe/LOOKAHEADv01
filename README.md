@@ -45,6 +45,7 @@ js/
   views/*.js          una por pestaña (+ charts.js para SVG y nav.js para pestañas)
   io/excel-campo.js   Excel de campo: exportar, leer, validar, vista previa y carga
   io/excel-report.js  Excel de reporte con fórmulas
+  io/excel-charts.js  gráficos nativos de Excel (hoja Gráficos) agregados al .xlsx
   io/csv-export.js    ZIP de CSV por tabla + datos.json
   io/respaldo.js      respaldo .json del proyecto: guardar y restaurar
 scripts/build.mjs     empaquetado a un solo HTML
