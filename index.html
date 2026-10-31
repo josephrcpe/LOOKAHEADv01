@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- build:head (se copia tal cual al archivo publicado) -->
+<title>Lookahead de Obra</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!-- /build:head -->
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- build:body -->
+<div class="wrap">
+  <header class="top">
+    <div class="top-row">
+      <div class="top-title">
+        <div class="eyebrow">Programa de 3 semanas · Lookahead</div>
+        <h1><input id="projName" class="proj-name" value="" aria-label="Nombre del proyecto" maxlength="60"></h1>
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="btnNew">Nuevo</button>
+        <button class="btn" id="btnSaveAs">Guardar como…</button>
+        <button class="btn" id="btnOpen">Abrir</button>
+      </div>
+    </div>
+    <div class="horizon">
+      <div class="horizon-box">
+        <button class="btn btn-icon btn-ghost" id="prevWeek" title="Semana anterior" aria-label="Semana anterior">◀</button>
+        <label class="eyebrow" for="startDate">Inicio</label>
+        <input type="date" id="startDate" class="mono">
+        <button class="btn btn-icon btn-ghost" id="nextWeek" title="Semana siguiente" aria-label="Semana siguiente">▶</button>
+      </div>
+      <div class="horizon-box">
+        <label class="eyebrow" for="workWeek" style="padding-left:6px">Jornada</label>
+        <select id="workWeek">
+          <option value="7">Lunes a domingo</option>
+          <option value="6">Lunes a sábado</option>
+          <option value="5">Lunes a viernes</option>
+        </select>
+      </div>
+      <div class="horizon-box">
+        <label class="eyebrow" for="hoursDay" style="padding-left:6px">h/día</label>
+        <input type="number" id="hoursDay" min="1" max="24" step="0.5" class="mono">
+      </div>
+      <span class="horizon-range mono" id="horizonRange"></span>
+      <button class="btn" id="thisWeek">Esta semana</button>
+      <span class="spacer"></span>
+      <button class="btn" id="exportData">Exportar datos (CSV)</button>
+      <button class="btn btn-primary" id="exportBtn">Exportar a Excel</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-entrada" aria-controls="view-entrada" data-view="entrada">Entrada de actividades<span class="count" id="countAll"></span></button>
+    <button class="tab" role="tab" id="tab-gantt" aria-controls="view-gantt" data-view="gantt">Diagrama de Gantt<span class="count" id="countHorizon"></span></button>
+    <button class="tab" role="tab" id="tab-ejecucion" aria-controls="view-ejecucion" data-view="ejecucion">Ejecución<span class="count" id="countRestr"></span></button>
+    <button class="tab" role="tab" id="tab-asbuilt" aria-controls="view-asbuilt" data-view="asbuilt">Gantt real</button>
+    <button class="tab" role="tab" id="tab-indicadores" aria-controls="view-indicadores" data-view="indicadores">Indicadores</button>
+    <div class="status" id="status"><span class="dot"></span><span>Conectando…</span></div>
+  </nav>
+
+  <div class="panel empty" id="noProject" hidden>
+    <strong>No hay ningún proyecto abierto</strong>
+    <span>Crea un proyecto nuevo o abre uno existente para registrar actividades.</span>
+    <div class="btn-group"><button class="btn btn-primary" data-act="new">Nuevo proyecto</button><button class="btn" data-act="open">Abrir</button></div>
+  </div>
+
+  <!-- Entrada: programa vigente y línea base (views/entrada.js) -->
+  <section id="view-entrada" role="tabpanel" aria-labelledby="tab-entrada">
+    <div class="entry">
+      <div class="panel">
+        <div class="panel-head"><h2 id="formTitle">Nueva actividad</h2></div>
+        <form id="actForm" novalidate>
+          <div class="editing-banner" id="editingBanner" hidden></div>
+          <div class="idbox"><span class="eyebrow">Id Tarea</span><span class="id" id="idPreview"></span></div>
+          <div class="field">
+            <label for="f-desc">Descripción breve <span class="req">*</span></label>
+            <input id="f-desc" maxlength="120" placeholder="Ej. Montaje de columnas eje 3" autocomplete="off">
+            <div class="err" id="e-desc"></div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-disciplina">Disciplina <span class="req">*</span></label>
+              <select id="f-disciplina"></select>
+              <div class="err" id="e-disciplina"></div>
+            </div>
+            <div class="field">
+              <label for="f-tipo">Tipo <span class="req">*</span></label>
+              <select id="f-tipo"></select>
+              <div class="err" id="e-tipo"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-especialidad">Especialidad</label>
+            <input id="f-especialidad" list="dl-especialidad" maxlength="60" autocomplete="off">
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-sector">Sector/Zona <span class="req">*</span></label>
+              <input id="f-sector" list="dl-sector" maxlength="20" placeholder="Ej. ESP0310" autocomplete="off" spellcheck="false">
+              <div class="err" id="e-sector"></div>
+            </div>
+            <div class="field">
+              <label for="f-sectorNombre">Nombre del sector</label>
+              <input id="f-sectorNombre" maxlength="60" placeholder="Ej. Edificio de Molienda" autocomplete="off">
+            </div>
+          </div>
+          <div class="help">Código definido por Oficina Técnica: letras y números, sin espacios ni puntos. El nombre se guarda para ese código y se reutiliza.</div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-inicio">Fecha de inicio <span class="req">*</span></label>
+              <input id="f-inicio" type="date" class="mono">
+              <div class="err" id="e-inicio"></div>
+            </div>
+            <div class="field">
+              <label for="f-fin">Fecha de fin <span class="req">*</span></label>
+              <input id="f-fin" type="date" class="mono">
+              <div class="err" id="e-fin"></div>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-personal">Personal (preliminar) <span class="req">*</span></label>
+              <input id="f-personal" type="number" min="0" max="999" step="1" inputmode="numeric" class="mono" placeholder="Ej. 8">
+              <div class="err" id="e-personal"></div>
+            </div>
+            <div class="field">
+              <label for="f-resp">Responsable</label>
+              <input id="f-resp" list="dl-resp" maxlength="60" autocomplete="off">
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-metrado">Metrado planificado</label>
+              <input id="f-metrado" type="number" min="0" step="any" inputmode="decimal" class="mono" placeholder="Ej. 120">
+              <div class="err" id="e-metrado"></div>
+            </div>
+            <div class="field">
+              <label for="f-unidad">Unidad</label>
+              <select id="f-unidad"></select>
+              <div class="err" id="e-unidad"></div>
+            </div>
+          </div>
+          <div class="info" id="hhInfo"></div>
+          <div class="hint" id="durHint"></div>
+          <div class="optional-sep">Opcionales</div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-peso">Peso o tonelaje (t)</label>
+              <input id="f-peso" type="number" min="0" step="any" inputmode="decimal" class="mono" placeholder="Pieza más pesada">
+            </div>
+            <div class="field">
+              <label for="f-altura">Altura de izaje (m)</label>
+              <input id="f-altura" type="number" min="0" step="any" inputmode="decimal" class="mono">
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-nivel">Nivel</label>
+              <input id="f-nivel" list="dl-nivel" maxlength="40" placeholder="Ej. EL. +12.50" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="f-ejes">Ejes</label>
+              <input id="f-ejes" maxlength="40" placeholder="Ej. A-C / 1-4" autocomplete="off">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-plano">Plano de referencia</label>
+            <input id="f-plano" maxlength="60" placeholder="Ej. 0310-ST-DWG-101 Rev. 2" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="f-pred">Predecesora</label>
+            <select id="f-pred"></select>
+            <div class="err" id="e-pred"></div>
+          </div>
+          <div class="field">
+            <label for="f-obs">Observaciones</label>
+            <textarea id="f-obs" maxlength="500"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submitBtn">Agregar actividad</button>
+            <button type="button" class="btn" id="cancelEdit" hidden>Cancelar edición</button>
+            <button type="button" class="btn btn-ghost" id="clearForm">Limpiar</button>
+          </div>
+        </form>
+        <datalist id="dl-especialidad"></datalist><datalist id="dl-sector"></datalist>
+        <datalist id="dl-nivel"></datalist><datalist id="dl-resp"></datalist>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Actividades registradas</h2>
+          <div class="table-tools">
+            <input id="search" type="search" placeholder="Buscar…" aria-label="Buscar actividades">
+            <select id="filterDisc" aria-label="Filtrar por disciplina"></select>
+          </div>
+        </div>
+        <div class="info" id="lbBar" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px">
+          <span id="lbText"></span>
+          <button class="btn btn-sm" id="freezeBtn">Congelar línea base</button>
+        </div>
+        <div class="scroll-x">
+          <table>
+            <thead><tr>
+              <th>Id Tarea</th><th>Descripción</th><th>Disciplina · Tipo</th><th>Sector/Zona</th><th>Inicio</th><th>Fin</th><th class="num">Días</th><th class="num">Pers.</th><th>Responsable</th><th>Pred.</th><th></th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="tableEmpty" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lookahead de 3 semanas (views/gantt.js) -->
+  <section id="view-gantt" role="tabpanel" aria-labelledby="tab-gantt" hidden>
+    <div style="display:grid; gap:12px">
+      <div class="gantt-tools">
+        <select id="gGroup" aria-label="Agrupar por">
+          <option value="sector">Agrupar: Sector/Zona › Disciplina</option>
+          <option value="disc">Agrupar: Disciplina › Sector/Zona</option>
+        </select>
+        <select id="gDisc" aria-label="Filtrar por disciplina"></select>
+        <select id="gSector" aria-label="Filtrar por sector"></select>
+        <select id="gResp" aria-label="Filtrar por responsable"></select>
+        <button class="btn" id="expandAll">Expandir todo</button>
+        <button class="btn" id="collapseAll">Colapsar todo</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="gantt-scroll"><div class="gantt" id="gantt"></div></div>
+      <div class="gantt-note" id="ganttNote"></div>
+    </div>
+  </section>
+
+  <!-- Ejecución semanal: plan, Excel de campo, registros y restricciones (views/ejecucion.js) -->
+  <section id="view-ejecucion" role="tabpanel" aria-labelledby="tab-ejecucion" hidden>
+    <div class="exec-grid">
+      <div class="ex-head">
+        <div class="week-nav">
+          <button class="btn btn-icon" id="exPrev" aria-label="Semana anterior">◀</button>
+          <div><div class="eyebrow">Semana de registro</div><div class="wk mono" id="exWeek"></div></div>
+          <button class="btn btn-icon" id="exNext" aria-label="Semana siguiente">▶</button>
+        </div>
+        <div class="help" style="max-width:56ch">Ciclo semanal: congela el plan con los compromisos, entrega el Excel de campo y carga el corte al cierre. Lo real se guarda aparte; la línea base no cambia.</div>
+      </div>
+      <div class="plan-bar" id="planBar"></div>
+      <div class="kpis" id="exKpis"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Actividades de la semana</h2><span class="help" id="exCount"></span></div>
+        <div class="scroll-x">
+          <table>
+            <thead><tr><th>Id Tarea</th><th>Descripción</th><th class="num">Comprometido</th><th class="num">Ejecutado</th><th>Cumplida</th><th class="num">HH real</th><th class="num">Avance</th><th>Registro</th><th>Restr.</th><th></th></tr></thead>
+            <tbody id="exBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="exEmpty" hidden><strong>No hay actividades planificadas esta semana</strong><span>Cambia de semana o registra actividades en la pestaña Entrada.</span></div>
+      </div>
+      <div class="panel" id="exFormPanel" hidden></div>
+      <div class="panel">
+        <div class="panel-head"><h2>Restricciones abiertas</h2><span class="help">Se liberan desde el registro de cada actividad.</span></div>
+        <div class="scroll-x">
+          <table>
+            <thead><tr><th>Id Tarea</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th>Compromiso</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="rsBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="rsEmpty" hidden><strong>Sin restricciones abiertas</strong><span>Las actividades sin restricciones están listas para ejecutarse.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gantt real: proyectado (línea base) frente a ejecutado (views/asbuilt.js) -->
+  <section id="view-asbuilt" role="tabpanel" aria-labelledby="tab-asbuilt" hidden>
+    <div style="display:grid; gap:12px">
+      <div class="kpis" id="abKpis"></div>
+      <div class="gantt-tools"><select id="abDisc" aria-label="Filtrar por disciplina"></select><div class="legend" id="abLegend"></div></div>
+      <div class="gantt-scroll" id="asbuilt"></div>
+      <div class="gantt-note" id="abNote"></div>
+    </div>
+  </section>
+
+  <!-- Indicadores en HH: curva S, PAC e histogramas (views/indicadores.js) -->
+  <section id="view-indicadores" role="tabpanel" aria-labelledby="tab-indicadores" hidden>
+    <div style="display:grid; gap:14px">
+      <div class="kpis" id="indKpis"></div>
+      <div id="indBody" style="display:grid; gap:14px"></div>
+    </div>
+  </section>
+</div>
+<div class="modal-back" id="modal" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modalBox"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<!-- /build:body -->
+<!-- Librerías externas (globales ExcelJS y JSZip) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
