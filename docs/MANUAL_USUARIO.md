@@ -58,11 +58,22 @@ Arriba: **Nuevo**, **Guardar como…** (copia completa) y **Abrir** para cambiar
 
 ## 4. Exportar
 
-- **Exportar a Excel**: reporte con fórmulas (lookahead, ejecución, pérdidas, equipos, restricciones, planes semanales, curva S, indicadores, línea base y catálogos).
+- **Exportar a Excel**: reporte con fórmulas. La hoja **Gráficos** trae la curva S, el PAC semanal, el personal plan vs real, las HH perdidas por causa y el factor de productividad como gráficos de Excel: puedes editarlos o copiarlos a tu informe, sin macros. Además incluye las hojas de lookahead, ejecución, pérdidas, equipos, restricciones, planes semanales, curva S, indicadores, línea base y catálogos).
 - **Exportar datos (CSV)**: ZIP con una tabla por archivo, lista para análisis y para juntar varios proyectos.
 
-## 5. Proyectos de ejemplo
+## 5. Respaldo en tu equipo
+
+- **Guardar respaldo** (arriba, junto a Abrir) descarga un archivo `Respaldo <proyecto> <fecha>.json` con todo el proyecto: actividades, líneas base, planes semanales, registros, cortes y restricciones. Guárdalo donde quieras (disco, USB, OneDrive). Conviene hacerlo después de cada corte semanal.
+- **Abrir → Restaurar respaldo…** lee ese archivo, muestra qué trae y te deja elegir:
+  - **Como proyecto nuevo**, con el nombre que indiques (no toca los demás proyectos).
+  - **Reemplazar** el proyecto del que salió, si existe aquí. Su contenido actual se borra y queda igual al respaldo; no se puede deshacer.
+- El mismo archivo sirve para pasar un proyecto de la página publicada a la copia sin conexión, o al revés.
+- El ZIP de **Exportar datos (CSV)** es para análisis; para restaurar usa el archivo de respaldo.
+
+## 6. Proyectos de ejemplo
 
 **Proy_Ejem_2M**: 21 actividades en dos sectores (ESP0240 Stock Pile, ESP0310 Edificio de Molienda), del 7 de setiembre al 1 de noviembre de 2026. Tiene registros hasta la semana 7 y la **semana 8 con plan congelado y sin registros**, para que pruebes el flujo del Excel de campo.
 
 **Proy_Ejem_Concluido**: el mismo proyecto ejecutado hasta el final. La línea base iba del 6 de julio al 29 de agosto de 2026 y la obra terminó el 17 de septiembre (+19 días). Tiene 11 semanas con plan congelado, registros y corte, y todas las restricciones están liberadas. Sirve para ver el ciclo completo: la curva S cerrada, el PAC semana a semana, el as-built frente al proyectado y las causas de pérdida. Al terminar un proyecto, el SPI vuelve a 1 aunque haya atraso; el atraso real se lee en **Gantt real**.
+
+**Copia sin conexión** (`lookahead.html` abierto desde tu equipo): guarda los datos solo en tu navegador. La primera vez que se abre en un navegador carga los dos ejemplos automáticamente, aunque ya tengas otros proyectos guardados. Si los borraste o quieres recuperarlos, usa **Abrir → Cargar proyectos de ejemplo** (no reemplaza proyectos que ya existan).

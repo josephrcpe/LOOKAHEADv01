@@ -70,6 +70,17 @@ Rutas alternan colección/documento. Todas cuelgan de `proyectos/{pid}`.
 - Hoja `_meta` (muy oculta): `version, pid, semana`. El importador rechaza otro proyecto u otra versión.
 - `readCampo` → `planCambios` (valida y arma registros, reprogramaciones y tareas no planificadas; estados `ok | aviso | error | omitida`) → vista previa → `aplicar` (escribe y guarda el corte). Las filas con error no se cargan.
 
+### Gráficos del Excel (`io/excel-charts.js`)
+
+- ExcelJS no escribe gráficos. `excel-report.js` crea la hoja "Gráficos" (tablas de datos desde la columna V) y arma una especificación por gráfico; `insertarGraficos` abre el .xlsx con JSZip y agrega `xl/charts/chartN.xml`, `xl/drawings/drawingN.xml`, relaciones y tipos de contenido.
+- Cada serie apunta a un rango (editable en Excel) y lleva caché de valores. La curva S lee la hoja "Curva S" (columnas D, E, G); si cambias esas columnas, actualiza `hojaGraficos`.
+- Si la inserción falla, el Excel se descarga igual, sin gráficos.
+
+### Respaldo (`io/respaldo.js`)
+
+- Archivo `.json`: `{ formato: "lookahead-respaldo", version: 1, exportado, pid, proyecto, colecciones: { tareas, lineasBase, planesSemanales, registros, cortes, restricciones } }`. Las colecciones salen de `SUBS` en `data.js`, así que una subcolección nueva entra sola en el respaldo.
+- Restaurar: `validar` → resumen → `data.js → escribirProyecto(pid, proyecto, colecciones, reemplazar)`. Como nuevo usa un pid nuevo; reemplazar usa el pid del respaldo y borra antes los documentos que el respaldo no trae. Si cambias la forma del archivo, sube `VERSION` y acepta las anteriores.
+
 ## 7. Cómo extender
 
 - **Nuevo tipo de actividad, causa o categoría:** agrégalo en `config.js` (no renombres códigos existentes).
@@ -79,6 +90,6 @@ Rutas alternan colección/documento. Todas cuelgan de `proyectos/{pid}`.
 
 ## 8. Pruebas y publicación
 
-- Desarrollo: `npm run dev` y abrir `http://localhost:8080`. Sin conexión a la plataforma usa `localStorage` (clave `lookahead-db-v3`); para cargar el ejemplo, pon el JSON de `scripts/ejemplo_2m.py` en esa clave.
+- Desarrollo: `npm run dev` y abrir `http://localhost:8080`. Sin conexión a la plataforma usa `localStorage` (clave `lookahead-db-v3`); en modo local, la primera vez en cada navegador (marca `lookahead-ejemplos-v1`), `data.js → cargarEjemplos()` importa `data/ejemplos.js` (generado con `npm run ejemplos`) y lo escribe con `db.setMany`. El mismo botón está en Abrir → Cargar proyectos de ejemplo.
 - Prueba integral usada (Playwright): carga el ejemplo, recorre las 5 pestañas, exporta el Excel de campo, lo llena, lo vuelve a cargar, exporta Excel y CSV, revisa modo oscuro y ancho de 390 px sin desborde.
 - Publicación: `npm run build` y publicar `dist/index.html` en el mismo Artifact (capacidades `db`, `user`, `downloads`).

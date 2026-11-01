@@ -24,6 +24,7 @@
         <button class="btn" id="btnNew">Nuevo</button>
         <button class="btn" id="btnSaveAs">Guardar como…</button>
         <button class="btn" id="btnOpen">Abrir</button>
+        <button class="btn" id="btnBackup" title="Descarga el proyecto completo en un archivo .json">Guardar respaldo</button>
       </div>
     </div>
     <div class="horizon">
@@ -65,7 +66,7 @@
   <div class="panel empty" id="noProject" hidden>
     <strong>No hay ningún proyecto abierto</strong>
     <span>Crea un proyecto nuevo o abre uno existente para registrar actividades.</span>
-    <div class="btn-group"><button class="btn btn-primary" data-act="new">Nuevo proyecto</button><button class="btn" data-act="open">Abrir</button></div>
+    <div class="btn-group"><button class="btn btn-primary" data-act="new">Nuevo proyecto</button><button class="btn" data-act="open">Abrir</button><button class="btn" data-act="restore">Restaurar respaldo</button></div>
   </div>
 
   <!-- Entrada: programa vigente y línea base (views/entrada.js) -->

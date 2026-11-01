@@ -9,6 +9,7 @@ export const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "
 // Claves de almacenamiento del navegador (modo local y preferencias de vista).
 export const LS_KEY = "lookahead-db-v3";
 export const PID_KEY = "lookahead-pid";
+export const EJ_KEY = "lookahead-ejemplos-v1"; // marca: los ejemplos ya se ofrecieron en este navegador
 export const UI_KEY = "lookahead-ui-v2";
 export const WHO_KEY = "lookahead-registrador";
 

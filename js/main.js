@@ -34,7 +34,7 @@ function renderNow() {
   const has = !!state.pid;
   $("noProject").hidden = has || !state.projectsLoaded;
   showView(currentView());
-  const always = [$("exportBtn"), $("exportData")];
+  const always = [$("exportBtn"), $("exportData"), $("btnBackup")];
   for (const el of [$("projName"), $("startDate"), $("prevWeek"), $("nextWeek"), $("thisWeek"), $("workWeek"), $("hoursDay"), $("btnSaveAs"), ...always])
     el.disabled = !has || (state.readOnly && !always.includes(el));
   $("btnNew").disabled = state.readOnly || state.mode === "connecting";

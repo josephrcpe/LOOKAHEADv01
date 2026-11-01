@@ -2,8 +2,9 @@
 
 import { $, esc, num, toDay, toIso, todayDay, mondayOf, fmt, fmtIso } from "../util.js";
 import { state, P, horasDia, startDay } from "../state.js";
-import { requirePid, writeFailed, saveProj, createProject, copyProject, openProject, nameTaken } from "../data.js";
+import { requirePid, writeFailed, saveProj, createProject, copyProject, openProject, nameTaken, cargarEjemplos } from "../data.js";
 import { toast, openModal, closeModal } from "../ui.js";
+import { guardarRespaldo, restaurarRespaldo } from "../io/respaldo.js";
 
 function nameDialog({ title, text, value, button, onOk }) {
   openModal(`<h2 id="modalTitle">${esc(title)}</h2><p class="help" style="margin:0">${esc(text)}</p>
@@ -35,8 +36,12 @@ export function openDialog() {
   const list = state.projects;
   openModal(`<h2 id="modalTitle">Abrir proyecto</h2>
     ${list.length ? `<div class="proj-list">${list.map((p) => `<div class="proj-item${p.pid === state.pid ? " current" : ""}"><div><div class="nm">${esc(p.nombre || p.pid)}</div><div class="help">Horizonte desde ${esc(fmtIso(p.inicio))}${p.modificado ? " · modificado " + esc(fmt(toDay(p.modificado.slice(0, 10)), true)) : ""}</div></div>${p.pid === state.pid ? '<span class="pill info">Abierto</span>' : `<button class="btn btn-sm btn-primary" data-pid="${esc(p.pid)}">Abrir</button>`}</div>`).join("")}</div>` : '<p class="help">Todavía no hay proyectos guardados.</p>'}
-    <div class="modal-actions"><button class="btn" data-close>Cerrar</button></div>`, (box) => {
-    box.addEventListener("click", (e) => { const b = e.target.closest("[data-pid]"); if (b) { openProject(b.dataset.pid); closeModal(); toast(`Proyecto "${P().nombre}" abierto.`); } });
+    <div class="modal-actions"><button class="btn" data-restore${state.readOnly ? " disabled" : ""}>Restaurar respaldo…</button><button class="btn" data-ejemplos${state.readOnly ? " disabled" : ""}>Cargar proyectos de ejemplo</button><button class="btn" data-close>Cerrar</button></div>`, (box) => {
+    box.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-restore]")) { closeModal(); restaurarRespaldo(); return; }
+      const ej = e.target.closest("[data-ejemplos]");
+      if (ej) { ej.disabled = true; try { if (await cargarEjemplos()) closeModal(); } catch (ex) { writeFailed(ex); } finally { ej.disabled = false; } return; }
+      const b = e.target.closest("[data-pid]"); if (b) { openProject(b.dataset.pid); closeModal(); toast(`Proyecto "${P().nombre}" abierto.`); } });
   });
 }
 
@@ -52,7 +57,8 @@ export function initProyectos() {
   $("btnNew").addEventListener("click", newProject);
   $("btnSaveAs").addEventListener("click", saveAsProject);
   $("btnOpen").addEventListener("click", openDialog);
-  $("noProject").addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b) (b.dataset.act === "new" ? newProject : openDialog)(); });
+  $("btnBackup").addEventListener("click", () => guardarRespaldo().catch(writeFailed));
+  $("noProject").addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b) ({ new: newProject, open: openDialog, restore: restaurarRespaldo })[b.dataset.act](); });
   $("startDate").addEventListener("change", (e) => { const d = toDay(e.target.value); if (!isNaN(d)) setStart(d); });
   $("prevWeek").addEventListener("click", () => setStart(startDay() - 7));
   $("nextWeek").addEventListener("click", () => setStart(startDay() + 7));

@@ -9,7 +9,7 @@
 // proyectos/{pid}/cortes/{lunes}          historial de cargas de Excel de campo
 // proyectos/{pid}/restricciones/{id}
 
-import { PID_KEY } from "./config.js";
+import { PID_KEY, EJ_KEY } from "./config.js";
 import { lsGet, lsSet, toIso, todayDay, newId } from "./util.js";
 import { state, P, DEFAULT_PROJ, horasDia, sortActs, hhPlan, requestRender, emit } from "./state.js";
 import { openStore } from "./store.js";
@@ -47,7 +47,15 @@ export async function connect() {
   db = s.db; state.mode = s.mode; state.readOnly = s.readOnly;
   db.collection("proyectos").onSnapshot((snap) => {
     state.projects = snap.docs.map((d) => ({ pid: d.id, ...d.data() })).sort((a, b) => (b.modificado || "").localeCompare(a.modificado || ""));
+    const first = !state.projectsLoaded;
     state.projectsLoaded = true;
+    // Copia sin conexión: la primera vez en este navegador carga los ejemplos incluidos, aunque ya
+    // haya otros proyectos guardados (p. ej. de una versión anterior). Después solo con Abrir → Cargar ejemplos.
+    if (first && state.mode === "local" && !lsGet(EJ_KEY)) {
+      lsSet(EJ_KEY, "1");
+      cargarEjemplos({ silencioso: true }).catch(writeFailed);
+      if (!state.projects.length) return;
+    }
     if (!state.pid || !state.projects.some((p) => p.pid === state.pid)) {
       const stored = lsGet(PID_KEY);
       const pick = state.projects.find((p) => p.pid === stored) || state.projects[0];
@@ -134,4 +142,47 @@ export async function addRestr(a, fields) {
 export async function freeRestr(id) {
   const r = state.restr.find((x) => x.id === id); if (!r) return;
   await col("restricciones").doc(id).set({ ...r, estado: "Liberada", fechaLiberacion: toIso(todayDay()) });
+}
+
+// ---------- Respaldo (io/respaldo.js) ----------
+export const RESPALDO_COLS = SUBS.map(([name]) => name);
+// Contenido del proyecto abierto: documento del proyecto y cada subcolección como lista.
+export function datosProyecto() {
+  const colecciones = {};
+  for (const [name, key] of SUBS) colecciones[name] = state[key].map((d) => ({ ...d }));
+  return { pid: state.pid, proyecto: { ...P() }, colecciones };
+}
+// Escribe un respaldo en proyectos/{pid}. Con reemplazar, borra antes los documentos que el respaldo no trae.
+export async function escribirProyecto(pid, proyecto, colecciones, reemplazar) {
+  const dst = "proyectos/" + pid;
+  if (reemplazar) for (const [name] of SUBS) {
+    const keep = new Set((colecciones[name] || []).map((d, i) => idDe(name, d, i)));
+    const snap = await db.collection(dst + "/" + name).get();
+    for (const d of snap.docs) if (!keep.has(d.id)) await db.collection(dst + "/" + name).doc(d.id).delete();
+  }
+  const entries = [[dst, proyecto]];
+  for (const [name] of SUBS) (colecciones[name] || []).forEach((d, i) => entries.push([dst + "/" + name + "/" + idDe(name, d, i), d]));
+  if (db.setMany) await db.setMany(entries);
+  else for (let i = 0; i < entries.length; i++) {
+    await db.doc(entries[i][0]).set(entries[i][1]);
+    if (i % 10 === 9) toast(`Restaurando… ${i + 1} de ${entries.length}`);
+  }
+  if (!state.projects.some((p) => p.pid === pid)) state.projects = [{ pid, ...proyecto }, ...state.projects];
+  openProject(pid);
+}
+const idDe = (name, d, i) => { const f = SUBS.find(([n]) => n === name)[2]; return String(f(d) ?? "x" + i); };
+export const nuevoPid = makePid;
+
+// ---------- Proyectos de ejemplo (data/ejemplos.js) ----------
+// Escribe los ejemplos que falten; nunca sobrescribe un proyecto existente.
+export async function cargarEjemplos({ silencioso } = {}) {
+  const { default: docs } = await import("../data/ejemplos.js");
+  const have = new Set(state.projects.map((p) => p.pid));
+  const entries = Object.entries(docs).filter(([path]) => !have.has(path.split("/")[1]));
+  if (!entries.length) { if (!silencioso) toast("Los proyectos de ejemplo ya están cargados."); return 0; }
+  if (db.setMany) await db.setMany(entries);
+  else for (let i = 0; i < entries.length; i++) await db.doc(entries[i][0]).set(entries[i][1]);
+  const n = new Set(entries.map(([path]) => path.split("/")[1])).size;
+  toast(`Se cargaron ${n} proyecto(s) de ejemplo. Ábrelos con Abrir.`, 5000);
+  return n;
 }
