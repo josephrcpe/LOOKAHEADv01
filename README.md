@@ -3,7 +3,7 @@
 Herramienta web para planificar y controlar obras con un **lookahead de 3 semanas**, registrar la **ejecución semanal** (manual o con un **Excel de campo**) y comparar el **cronograma proyectado** (línea base) con el **real** (as-built), con indicadores en **HH**.
 
 - Página publicada: https://claude.ai/artifact/E5LB68eGP35DgYSpP8tcVV (datos compartidos en la nube).
-- Copia sin conexión: `dist/lookahead.html` (guarda en el navegador). Trae los proyectos de ejemplo incluidos y los carga sola la primera vez que se abre sin proyectos.
+- Copia sin conexión: `dist/lookahead.html` (guarda en el navegador). Trae los proyectos de ejemplo incluidos y los carga sola la primera vez que se abre en cada navegador.
 - Respaldo físico: **Guardar respaldo** descarga el proyecto completo en un `.json`; **Abrir → Restaurar respaldo…** lo vuelve a cargar (en la nube o en la copia local).
 - Proyectos de ejemplo: **Proy_Ejem_2M** (en curso, con registros hasta la semana 7) y **Proy_Ejem_Concluido** (terminado, con todas las semanas registradas).
 

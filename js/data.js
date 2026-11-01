@@ -9,7 +9,7 @@
 // proyectos/{pid}/cortes/{lunes}          historial de cargas de Excel de campo
 // proyectos/{pid}/restricciones/{id}
 
-import { PID_KEY } from "./config.js";
+import { PID_KEY, EJ_KEY } from "./config.js";
 import { lsGet, lsSet, toIso, todayDay, newId } from "./util.js";
 import { state, P, DEFAULT_PROJ, horasDia, sortActs, hhPlan, requestRender, emit } from "./state.js";
 import { openStore } from "./store.js";
@@ -49,8 +49,13 @@ export async function connect() {
     state.projects = snap.docs.map((d) => ({ pid: d.id, ...d.data() })).sort((a, b) => (b.modificado || "").localeCompare(a.modificado || ""));
     const first = !state.projectsLoaded;
     state.projectsLoaded = true;
-    // Copia sin conexión recién abierta: sin proyectos, carga los ejemplos incluidos.
-    if (first && state.mode === "local" && !state.projects.length) { cargarEjemplos().catch(writeFailed); return; }
+    // Copia sin conexión: la primera vez en este navegador carga los ejemplos incluidos, aunque ya
+    // haya otros proyectos guardados (p. ej. de una versión anterior). Después solo con Abrir → Cargar ejemplos.
+    if (first && state.mode === "local" && !lsGet(EJ_KEY)) {
+      lsSet(EJ_KEY, "1");
+      cargarEjemplos({ silencioso: true }).catch(writeFailed);
+      if (!state.projects.length) return;
+    }
     if (!state.pid || !state.projects.some((p) => p.pid === state.pid)) {
       const stored = lsGet(PID_KEY);
       const pick = state.projects.find((p) => p.pid === stored) || state.projects[0];
@@ -170,11 +175,11 @@ export const nuevoPid = makePid;
 
 // ---------- Proyectos de ejemplo (data/ejemplos.js) ----------
 // Escribe los ejemplos que falten; nunca sobrescribe un proyecto existente.
-export async function cargarEjemplos() {
+export async function cargarEjemplos({ silencioso } = {}) {
   const { default: docs } = await import("../data/ejemplos.js");
   const have = new Set(state.projects.map((p) => p.pid));
   const entries = Object.entries(docs).filter(([path]) => !have.has(path.split("/")[1]));
-  if (!entries.length) { toast("Los proyectos de ejemplo ya están cargados."); return 0; }
+  if (!entries.length) { if (!silencioso) toast("Los proyectos de ejemplo ya están cargados."); return 0; }
   if (db.setMany) await db.setMany(entries);
   else for (let i = 0; i < entries.length; i++) await db.doc(entries[i][0]).set(entries[i][1]);
   const n = new Set(entries.map(([path]) => path.split("/")[1])).size;

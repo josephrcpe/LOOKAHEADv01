@@ -638,6 +638,7 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
   var MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   var LS_KEY = "lookahead-db-v3";
   var PID_KEY = "lookahead-pid";
+  var EJ_KEY = "lookahead-ejemplos-v1";
   var UI_KEY = "lookahead-ui-v2";
   var WHO_KEY = "lookahead-registrador";
   var CAMPO_VERSION = "campo-v1";
@@ -1048,9 +1049,10 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
       state.projects = snap.docs.map((d) => ({ pid: d.id, ...d.data() })).sort((a, b) => (b.modificado || "").localeCompare(a.modificado || ""));
       const first = !state.projectsLoaded;
       state.projectsLoaded = true;
-      if (first && state.mode === "local" && !state.projects.length) {
-        cargarEjemplos().catch(writeFailed);
-        return;
+      if (first && state.mode === "local" && !lsGet(EJ_KEY)) {
+        lsSet(EJ_KEY, "1");
+        cargarEjemplos({ silencioso: true }).catch(writeFailed);
+        if (!state.projects.length) return;
       }
       if (!state.pid || !state.projects.some((p) => p.pid === state.pid)) {
         const stored = lsGet(PID_KEY);
@@ -1199,12 +1201,12 @@ details.tbl { margin-top: 10px; } details.tbl summary { cursor: pointer; color: 
     return String(f2(d) ?? "x" + i);
   };
   var nuevoPid = makePid;
-  async function cargarEjemplos() {
+  async function cargarEjemplos({ silencioso } = {}) {
     const { default: docs } = await Promise.resolve().then(() => (init_ejemplos(), ejemplos_exports));
     const have = new Set(state.projects.map((p) => p.pid));
     const entries = Object.entries(docs).filter(([path]) => !have.has(path.split("/")[1]));
     if (!entries.length) {
-      toast("Los proyectos de ejemplo ya est\xE1n cargados.");
+      if (!silencioso) toast("Los proyectos de ejemplo ya est\xE1n cargados.");
       return 0;
     }
     if (db.setMany) await db.setMany(entries);
